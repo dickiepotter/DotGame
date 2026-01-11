@@ -24,6 +24,11 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         _config = new SimulationConfig();
+    }
+
+    private void Window_Loaded(object sender, RoutedEventArgs e)
+    {
+        // Initialize simulation after window is loaded and canvas is laid out
         InitializeSimulation();
     }
 
@@ -31,6 +36,17 @@ public partial class MainWindow : Window
     {
         // Update config from UI
         UpdateConfigFromUI();
+
+        // Use actual canvas size (should be available after Window_Loaded)
+        if (SimulationCanvas.ActualWidth > 0 && SimulationCanvas.ActualHeight > 0)
+        {
+            _config.SimulationWidth = SimulationCanvas.ActualWidth;
+            _config.SimulationHeight = SimulationCanvas.ActualHeight;
+
+            // Update textboxes to reflect actual canvas size
+            SimWidthTextBox.Text = SimulationCanvas.ActualWidth.ToString("F0");
+            SimHeightTextBox.Text = SimulationCanvas.ActualHeight.ToString("F0");
+        }
 
         // Create simulation manager
         _simulationManager = new SimulationManager(SimulationCanvas, _config);
@@ -390,6 +406,25 @@ public partial class MainWindow : Window
             _draggedParticle = null;
             SimulationCanvas.ReleaseMouseCapture();
         }
+    }
+
+    private void SimulationBorder_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        // Get the new size of the border (which contains the canvas)
+        var newWidth = e.NewSize.Width;
+        var newHeight = e.NewSize.Height;
+
+        // Update canvas size to fill the border
+        SimulationCanvas.Width = newWidth;
+        SimulationCanvas.Height = newHeight;
+
+        // Update simulation configuration with new dimensions
+        _config.SimulationWidth = newWidth;
+        _config.SimulationHeight = newHeight;
+
+        // Update the UI textboxes to reflect new dimensions
+        SimWidthTextBox.Text = newWidth.ToString("F0");
+        SimHeightTextBox.Text = newHeight.ToString("F0");
     }
 
     private void SaveSettingsButton_Click(object sender, RoutedEventArgs e)
