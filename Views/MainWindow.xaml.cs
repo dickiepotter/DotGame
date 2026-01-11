@@ -6,6 +6,7 @@ using System.IO;
 using Microsoft.Win32;
 using DotGame.Models;
 using DotGame.Simulation;
+using System.Collections.Generic;
 
 namespace DotGame.Views;
 
@@ -271,25 +272,114 @@ public partial class MainWindow : Window
 
     private void SimulationCanvas_MouseMove(object sender, MouseEventArgs e)
     {
-        if (!_isDragging || _draggedParticle == null || _simulationManager == null)
-            return;
+        if (_simulationManager == null) return;
 
         // Get current mouse position
         var mousePos = e.GetPosition(SimulationCanvas);
         var currentPosition = new Vector2((float)mousePos.X, (float)mousePos.Y);
 
-        // Calculate mouse movement delta
-        var delta = currentPosition - _lastMousePosition;
+        // Handle dragging behavior
+        if (_isDragging && _draggedParticle != null)
+        {
+            // Calculate mouse movement delta
+            var delta = currentPosition - _lastMousePosition;
 
-        // Apply impulse based on mouse movement
-        // Scale factor controls how much impulse is applied
-        const float impulseFactor = 50.0f;
-        var impulse = delta * impulseFactor;
+            // Apply impulse based on mouse movement
+            // Scale factor controls how much impulse is applied
+            const float impulseFactor = 50.0f;
+            var impulse = delta * impulseFactor;
 
-        _simulationManager.ApplyImpulseToParticle(_draggedParticle, impulse);
+            _simulationManager.ApplyImpulseToParticle(_draggedParticle, impulse);
 
-        // Update last mouse position
-        _lastMousePosition = currentPosition;
+            // Update last mouse position
+            _lastMousePosition = currentPosition;
+
+            // Hide tooltip while dragging
+            ParticleTooltip.Visibility = Visibility.Collapsed;
+        }
+        else
+        {
+            // Show particle details on hover
+            var hoveredParticle = _simulationManager.FindParticleAtPosition(currentPosition);
+
+            if (hoveredParticle != null)
+            {
+                ShowParticleTooltip(hoveredParticle, mousePos);
+            }
+            else
+            {
+                ParticleTooltip.Visibility = Visibility.Collapsed;
+            }
+        }
+    }
+
+    private void ShowParticleTooltip(Particle particle, System.Windows.Point mousePos)
+    {
+        // Format particle details
+        var details = FormatParticleDetails(particle);
+        TooltipText.Text = details;
+
+        // Position tooltip near mouse cursor with offset
+        const double offsetX = 15;
+        const double offsetY = 15;
+        double left = mousePos.X + offsetX;
+        double top = mousePos.Y + offsetY;
+
+        // Keep tooltip within canvas bounds
+        if (left + ParticleTooltip.ActualWidth > SimulationCanvas.ActualWidth)
+            left = mousePos.X - ParticleTooltip.ActualWidth - offsetX;
+
+        if (top + ParticleTooltip.ActualHeight > SimulationCanvas.ActualHeight)
+            top = mousePos.Y - ParticleTooltip.ActualHeight - offsetY;
+
+        ParticleTooltip.Margin = new Thickness(left, top, 0, 0);
+        ParticleTooltip.Visibility = Visibility.Visible;
+    }
+
+    private string FormatParticleDetails(Particle particle)
+    {
+        var details = $"╔══ Particle #{particle.Id} ══╗\n";
+        details += $"Position: ({particle.Position.X:F1}, {particle.Position.Y:F1})\n";
+        details += $"Velocity: ({particle.Velocity.X:F1}, {particle.Velocity.Y:F1})\n";
+        details += $"Speed: {particle.Velocity.Length():F1}\n";
+        details += $"Mass: {particle.Mass:F2}\n";
+        details += $"Radius: {particle.Radius:F1}\n";
+
+        if (particle.HasAbilities && particle.Abilities != null)
+        {
+            details += $"\n╠══ Abilities ══╣\n";
+            details += $"Type: {particle.Abilities.Type}\n";
+            details += $"State: {particle.Abilities.CurrentState}\n";
+            details += $"Energy: {particle.Abilities.Energy:F1}/{particle.Abilities.MaxEnergy:F1} ({particle.EnergyPercentage:P0})\n";
+            details += $"Generation: {particle.Abilities.Generation}\n";
+            details += $"Vision Range: {particle.Abilities.VisionRange:F1}\n";
+
+            // List abilities
+            var abilityList = new List<string>();
+            if (particle.Abilities.HasAbility(AbilitySet.Eating)) abilityList.Add("Eating");
+            if (particle.Abilities.HasAbility(AbilitySet.Splitting)) abilityList.Add("Splitting");
+            if (particle.Abilities.HasAbility(AbilitySet.Reproduction)) abilityList.Add("Reproduction");
+            if (particle.Abilities.HasAbility(AbilitySet.Phasing)) abilityList.Add("Phasing");
+            if (particle.Abilities.HasAbility(AbilitySet.Chase)) abilityList.Add("Chase");
+            if (particle.Abilities.HasAbility(AbilitySet.Flee)) abilityList.Add("Flee");
+
+            if (abilityList.Count > 0)
+            {
+                details += $"Has: {string.Join(", ", abilityList)}\n";
+            }
+
+            // Show special states
+            if (particle.Abilities.IsPhasing)
+                details += $"PHASING: {particle.Abilities.PhasingTimeRemaining:F1}s\n";
+            if (particle.Abilities.IsSpeedBoosted)
+                details += $"SPEED BOOST: {particle.Abilities.SpeedBoostTimeRemaining:F1}s\n";
+            if (particle.Abilities.IsCamouflaged)
+                details += $"CAMOUFLAGED: {particle.Abilities.CamouflageTimeRemaining:F1}s\n";
+        }
+
+        details += "╚" + new string('═', 20) + "╝";
+
+        return details;
     }
 
     private void SimulationCanvas_MouseRightButtonUp(object sender, MouseButtonEventArgs e)
