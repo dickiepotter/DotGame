@@ -1,6 +1,9 @@
 using System.Numerics;
 using System.Windows;
 using System.Windows.Input;
+using System.Text.Json;
+using System.IO;
+using Microsoft.Win32;
 using DotGame.Models;
 using DotGame.Simulation;
 
@@ -297,5 +300,169 @@ public partial class MainWindow : Window
             _draggedParticle = null;
             SimulationCanvas.ReleaseMouseCapture();
         }
+    }
+
+    private void SaveSettingsButton_Click(object sender, RoutedEventArgs e)
+    {
+        // Update config from current UI values
+        UpdateConfigFromUI();
+
+        // Show save file dialog
+        var saveFileDialog = new SaveFileDialog
+        {
+            Filter = "JSON files (*.json)|*.json|All files (*.*)|*.*",
+            DefaultExt = "json",
+            FileName = "DotGameSettings.json",
+            Title = "Save Settings"
+        };
+
+        if (saveFileDialog.ShowDialog() == true)
+        {
+            try
+            {
+                // Serialize config to JSON
+                var options = new JsonSerializerOptions
+                {
+                    WriteIndented = true
+                };
+                string json = JsonSerializer.Serialize(_config, options);
+
+                // Write to file
+                File.WriteAllText(saveFileDialog.FileName, json);
+
+                MessageBox.Show($"Settings saved successfully to:\n{saveFileDialog.FileName}",
+                    "Settings Saved", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error saving settings:\n{ex.Message}",
+                    "Save Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+    }
+
+    private void LoadSettingsButton_Click(object sender, RoutedEventArgs e)
+    {
+        // Show open file dialog
+        var openFileDialog = new OpenFileDialog
+        {
+            Filter = "JSON files (*.json)|*.json|All files (*.*)|*.*",
+            DefaultExt = "json",
+            Title = "Load Settings"
+        };
+
+        if (openFileDialog.ShowDialog() == true)
+        {
+            try
+            {
+                // Read from file
+                string json = File.ReadAllText(openFileDialog.FileName);
+
+                // Deserialize config from JSON
+                var loadedConfig = JsonSerializer.Deserialize<SimulationConfig>(json);
+
+                if (loadedConfig != null)
+                {
+                    _config = loadedConfig;
+                    PopulateUIFromConfig();
+
+                    MessageBox.Show($"Settings loaded successfully from:\n{openFileDialog.FileName}",
+                        "Settings Loaded", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                else
+                {
+                    MessageBox.Show("Failed to load settings: Invalid file format.",
+                        "Load Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error loading settings:\n{ex.Message}",
+                    "Load Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+    }
+
+    private void PopulateUIFromConfig()
+    {
+        // Basic Configuration
+        ParticleCountTextBox.Text = _config.ParticleCount.ToString();
+        SeedTextBox.Text = _config.RandomSeed.ToString();
+        SimWidthTextBox.Text = _config.SimulationWidth.ToString();
+        SimHeightTextBox.Text = _config.SimulationHeight.ToString();
+        MaxParticlesTextBox.Text = _config.MaxParticles.ToString();
+
+        // Physics Parameters
+        GravityTextBox.Text = _config.GravitationalConstant.ToString();
+        DampingTextBox.Text = _config.DampingFactor.ToString();
+        RestitutionTextBox.Text = _config.RestitutionCoefficient.ToString();
+
+        // Particle Ranges
+        MinMassTextBox.Text = _config.MinMass.ToString();
+        MaxMassTextBox.Text = _config.MaxMass.ToString();
+        MinRadiusTextBox.Text = _config.MinRadius.ToString();
+        MaxRadiusTextBox.Text = _config.MaxRadius.ToString();
+        MaxVelocityTextBox.Text = _config.MaxInitialVelocity.ToString();
+
+        // Physics Toggles
+        UseGravityCheckBox.IsChecked = _config.UseGravity;
+        UseCollisionsCheckBox.IsChecked = _config.UseCollisions;
+        UseBoundariesCheckBox.IsChecked = _config.UseBoundaries;
+        UseDampingCheckBox.IsChecked = _config.UseDamping;
+        UseSpatialPartitioningCheckBox.IsChecked = _config.UseSpatialPartitioning;
+
+        // Ability Toggles
+        UseAbilitiesCheckBox.IsChecked = _config.UseAbilities;
+        UseEatingCheckBox.IsChecked = _config.UseEating;
+        UseSplittingCheckBox.IsChecked = _config.UseSplitting;
+        UseReproductionCheckBox.IsChecked = _config.UseReproduction;
+        UsePhasingCheckBox.IsChecked = _config.UsePhasing;
+        UseChaseCheckBox.IsChecked = _config.UseChase;
+        UseFleeCheckBox.IsChecked = _config.UseFlee;
+
+        // Energy Parameters
+        BaseEnergyTextBox.Text = _config.BaseEnergyCapacity.ToString();
+        PassiveDrainTextBox.Text = _config.PassiveEnergyDrain.ToString();
+        EatingGainTextBox.Text = _config.EatingEnergyGain.ToString();
+        SizeRatioTextBox.Text = _config.SizeRatioForEating.ToString();
+        VisionRangeTextBox.Text = _config.VisionRangeMultiplier.ToString();
+        HungerThresholdTextBox.Text = _config.HungerThreshold.ToString();
+
+        // Chase/Flee Parameters
+        ChaseForceTextBox.Text = _config.ChaseForce.ToString();
+        FleeForceTextBox.Text = _config.FleeForce.ToString();
+        ChaseEnergyCostTextBox.Text = _config.ChaseEnergyCost.ToString();
+        FleeEnergyCostTextBox.Text = _config.FleeEnergyCost.ToString();
+
+        // Splitting Parameters
+        SplittingEnergyCostTextBox.Text = _config.SplittingEnergyCost.ToString();
+        SplittingCooldownTextBox.Text = _config.SplittingCooldown.ToString();
+        SplittingSeparationTextBox.Text = _config.SplittingSeparationForce.ToString();
+
+        // Reproduction Parameters
+        ReproductionEnergyCostTextBox.Text = _config.ReproductionEnergyCost.ToString();
+        ReproductionCooldownTextBox.Text = _config.ReproductionCooldown.ToString();
+        ReproductionMassTransferTextBox.Text = _config.ReproductionMassTransfer.ToString();
+        ReproductionEnergyTransferTextBox.Text = _config.ReproductionEnergyTransfer.ToString();
+
+        // Phasing Parameters
+        PhasingEnergyCostTextBox.Text = _config.PhasingEnergyCost.ToString();
+        PhasingCooldownTextBox.Text = _config.PhasingCooldown.ToString();
+        PhasingDurationTextBox.Text = _config.PhasingDuration.ToString();
+
+        // Ability Probabilities
+        EatingProbTextBox.Text = _config.EatingProbability.ToString();
+        SplittingProbTextBox.Text = _config.SplittingProbability.ToString();
+        ReproductionProbTextBox.Text = _config.ReproductionProbability.ToString();
+        PhasingProbTextBox.Text = _config.PhasingProbability.ToString();
+        ChaseProbTextBox.Text = _config.ChaseProbability.ToString();
+        FleeProbTextBox.Text = _config.FleeProbability.ToString();
+
+        // Type Distribution
+        PredatorProbTextBox.Text = _config.PredatorProbability.ToString();
+        HerbivoreProbTextBox.Text = _config.HerbivoreProbability.ToString();
+        SocialProbTextBox.Text = _config.SocialProbability.ToString();
+        SolitaryProbTextBox.Text = _config.SolitaryProbability.ToString();
+        NeutralProbTextBox.Text = _config.NeutralProbability.ToString();
     }
 }

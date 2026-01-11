@@ -46,3 +46,6 @@ bld/
 ## Old Rust artifacts (can be removed)
 target/
 *.rs.bk
+
+## Claude Code
+.claude/
