@@ -40,7 +40,7 @@ public class SimulationConfig
     public double BaseEnergyCapacity { get; set; } = 100.0;
     public double PassiveEnergyDrain { get; set; } = 0.5; // Per second
     public double EatingEnergyGain { get; set; } = 0.8; // 80% of prey energy
-    public double SizeRatioForEating { get; set; } = 1.5; // Must be 1.5x larger to eat
+    public double SizeRatioForEating { get; set; } = 1.25; // Must be 1.25x larger to eat
     public double VisionRangeMultiplier { get; set; } = 5.0; // vision = radius * multiplier
     public double HungerThreshold { get; set; } = 0.3; // Trigger hunting at 30% energy
 

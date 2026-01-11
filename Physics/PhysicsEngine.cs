@@ -1,6 +1,7 @@
 using System.Numerics;
 using DotGame.Models;
 using DotGame.Abilities;
+using DotGame.Rendering;
 
 namespace DotGame.Physics;
 
@@ -38,7 +39,7 @@ public class PhysicsEngine
         }
     }
 
-    public void Update(List<Particle> particles, double deltaTime)
+    public void Update(List<Particle> particles, double deltaTime, ParticleRenderer? renderer = null)
     {
         // 0. Update abilities (before physics)
         if (_config.UseAbilities && _abilityManager != null)
@@ -50,7 +51,8 @@ public class PhysicsEngine
                 DeltaTime = deltaTime,
                 SpatialGrid = _collisionDetector as SpatialHashGrid,
                 ParticlesToAdd = new List<Particle>(),
-                ParticlesToRemove = new HashSet<int>()
+                ParticlesToRemove = new HashSet<int>(),
+                Renderer = renderer
             };
 
             _abilityManager.UpdateAbilities(particles, context);

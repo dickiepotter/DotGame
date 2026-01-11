@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using DotGame.Models;
 using DotGame.Physics;
+using DotGame.Rendering;
 
 namespace DotGame.Abilities;
 
@@ -12,6 +13,7 @@ public class AbilityContext
     public SpatialHashGrid? SpatialGrid { get; set; }
     public List<Particle> ParticlesToAdd { get; set; }
     public HashSet<int> ParticlesToRemove { get; set; }
+    public ParticleRenderer? Renderer { get; set; }
 
     public AbilityContext()
     {

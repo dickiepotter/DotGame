@@ -22,6 +22,7 @@ public class SimulationManager
 
     public bool IsRunning => _isRunning;
     public List<Particle> Particles => _particles;
+    public ParticleRenderer Renderer => _renderer;
 
     public SimulationManager(Canvas canvas, SimulationConfig config)
     {
@@ -87,11 +88,11 @@ public class SimulationManager
         // Skip update if delta time is too small
         if (deltaTime < 0.001) return;
 
-        // Update physics
-        _physicsEngine.Update(_particles, deltaTime);
+        // Update physics (pass renderer for explosion effects)
+        _physicsEngine.Update(_particles, deltaTime, _renderer);
 
         // Update rendering
-        _renderer.Render(_particles);
+        _renderer.Render(_particles, deltaTime);
     }
 
     // Add a new particle at the specified position

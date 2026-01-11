@@ -233,6 +233,19 @@ public class AbilityManager
             context.ParticlesToRemove.Add(dead.Id);
         }
 
+        // Create explosions for all particles being removed
+        if (context.Renderer != null)
+        {
+            foreach (var particleId in context.ParticlesToRemove)
+            {
+                var particle = particles.FirstOrDefault(p => p.Id == particleId);
+                if (particle != null)
+                {
+                    context.Renderer.AddExplosion(particle);
+                }
+            }
+        }
+
         // Remove particles marked for removal (eaten, etc.)
         particles.RemoveAll(p => context.ParticlesToRemove.Contains(p.Id));
 
