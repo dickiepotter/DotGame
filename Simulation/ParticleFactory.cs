@@ -35,7 +35,7 @@ public class ParticleFactory
                 (float)_random.NextDouble(-_config.MaxInitialVelocity, _config.MaxInitialVelocity)
             );
 
-            particles.Add(new Particle
+            var particle = new Particle
             {
                 Id = i,
                 Position = position,
@@ -44,9 +44,94 @@ public class ParticleFactory
                 Radius = radius,
                 Color = ColorGenerator.GetColorForMass(mass, _config.MinMass, _config.MaxMass),
                 PreviousPosition = position
-            });
+            };
+
+            // Add abilities if enabled
+            if (_config.UseAbilities)
+            {
+                particle.Abilities = CreateRandomAbilities(mass);
+            }
+
+            particles.Add(particle);
         }
 
         return particles;
+    }
+
+    private ParticleAbilities CreateRandomAbilities(double mass)
+    {
+        var abilities = new ParticleAbilities
+        {
+            Energy = mass * (_config.BaseEnergyCapacity / 10.0),
+            MaxEnergy = mass * (_config.BaseEnergyCapacity / 10.0),
+            Type = ChooseRandomType(),
+            Generation = 0,
+            Abilities = AbilitySet.None,
+            CurrentState = AbilityState.Idle
+        };
+
+        // Randomly assign abilities based on probabilities
+        if (_random.NextDouble(0, 1) < _config.EatingProbability)
+            abilities.Abilities |= AbilitySet.Eating;
+
+        if (_random.NextDouble(0, 1) < _config.SplittingProbability)
+            abilities.Abilities |= AbilitySet.Splitting;
+
+        if (_random.NextDouble(0, 1) < _config.ReproductionProbability)
+            abilities.Abilities |= AbilitySet.Reproduction;
+
+        if (_random.NextDouble(0, 1) < _config.PhasingProbability)
+            abilities.Abilities |= AbilitySet.Phasing;
+
+        if (_random.NextDouble(0, 1) < _config.ChaseProbability)
+            abilities.Abilities |= AbilitySet.Chase;
+
+        if (_random.NextDouble(0, 1) < _config.FleeProbability)
+            abilities.Abilities |= AbilitySet.Flee;
+
+        // Initialize cooldowns for assigned abilities
+        InitializeCooldowns(abilities);
+
+        // Calculate initial vision range
+        abilities.VisionRange = mass * _config.VisionRangeMultiplier;
+
+        return abilities;
+    }
+
+    private ParticleType ChooseRandomType()
+    {
+        double roll = _random.NextDouble(0, 1);
+        double cumulative = 0;
+
+        cumulative += _config.PredatorProbability;
+        if (roll < cumulative) return ParticleType.Predator;
+
+        cumulative += _config.HerbivoreProbability;
+        if (roll < cumulative) return ParticleType.Herbivore;
+
+        cumulative += _config.SocialProbability;
+        if (roll < cumulative) return ParticleType.Social;
+
+        cumulative += _config.SolitaryProbability;
+        if (roll < cumulative) return ParticleType.Solitary;
+
+        return ParticleType.Neutral;
+    }
+
+    private void InitializeCooldowns(ParticleAbilities abilities)
+    {
+        if (abilities.HasAbility(AbilitySet.Eating))
+            abilities.InitializeCooldown(AbilityType.Eating, 0.5);
+
+        if (abilities.HasAbility(AbilitySet.Splitting))
+            abilities.InitializeCooldown(AbilityType.Splitting, 5.0);
+
+        if (abilities.HasAbility(AbilitySet.Reproduction))
+            abilities.InitializeCooldown(AbilityType.Reproduction, 8.0);
+
+        if (abilities.HasAbility(AbilitySet.Phasing))
+            abilities.InitializeCooldown(AbilityType.Phasing, 10.0);
+
+        // Chase and Flee don't have cooldowns (continuous abilities)
     }
 }

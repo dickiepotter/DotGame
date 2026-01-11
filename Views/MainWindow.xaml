@@ -24,96 +24,256 @@
 
         <!-- Control Panel -->
         <Border Grid.Column="1" BorderBrush="Gray" BorderThickness="1" Margin="10" Padding="10">
-            <StackPanel>
-                <TextBlock Text="Particle Physics Simulator"
-                          FontSize="16"
-                          FontWeight="Bold"
-                          Margin="0,0,0,20"/>
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel>
+                    <TextBlock Text="Particle Physics Simulator"
+                              FontSize="16"
+                              FontWeight="Bold"
+                              Margin="0,0,0,20"/>
 
-                <!-- Control Buttons -->
-                <GroupBox Header="Controls" Margin="0,0,0,10">
-                    <StackPanel>
-                        <Button x:Name="StartButton"
-                               Content="Start"
-                               Click="StartButton_Click"
-                               Margin="0,5"
-                               Padding="5"/>
-                        <Button x:Name="StopButton"
-                               Content="Stop"
-                               Click="StopButton_Click"
-                               Margin="0,5"
-                               Padding="5"/>
-                        <Button x:Name="ResetButton"
-                               Content="Reset"
-                               Click="ResetButton_Click"
-                               Margin="0,5"
-                               Padding="5"/>
-                    </StackPanel>
-                </GroupBox>
+                    <!-- Control Buttons -->
+                    <GroupBox Header="Controls" Margin="0,0,0,10">
+                        <StackPanel>
+                            <Button x:Name="StartButton"
+                                   Content="Start"
+                                   Click="StartButton_Click"
+                                   Margin="0,5"
+                                   Padding="5"/>
+                            <Button x:Name="StopButton"
+                                   Content="Stop"
+                                   Click="StopButton_Click"
+                                   Margin="0,5"
+                                   Padding="5"/>
+                            <Button x:Name="ResetButton"
+                                   Content="Reset"
+                                   Click="ResetButton_Click"
+                                   Margin="0,5"
+                                   Padding="5"/>
+                        </StackPanel>
+                    </GroupBox>
 
-                <!-- Configuration -->
-                <GroupBox Header="Configuration" Margin="0,0,0,10">
-                    <StackPanel>
-                        <TextBlock Text="Particle Count:"/>
-                        <TextBox x:Name="ParticleCountTextBox"
-                                Text="50"
-                                Margin="0,2,0,10"/>
+                    <!-- Basic Configuration -->
+                    <GroupBox Header="Basic Configuration" Margin="0,0,0,10">
+                        <StackPanel>
+                            <TextBlock Text="Particle Count:"/>
+                            <TextBox x:Name="ParticleCountTextBox" Text="50" Margin="0,2,0,10"/>
 
-                        <TextBlock Text="Random Seed:"/>
-                        <TextBox x:Name="SeedTextBox"
-                                Text="12345"
-                                Margin="0,2,0,10"/>
+                            <TextBlock Text="Random Seed:"/>
+                            <TextBox x:Name="SeedTextBox" Text="12345" Margin="0,2,0,10"/>
 
-                        <TextBlock Text="Gravity Strength:"/>
-                        <TextBox x:Name="GravityTextBox"
-                                Text="100.0"
-                                Margin="0,2,0,10"/>
-                    </StackPanel>
-                </GroupBox>
+                            <TextBlock Text="Simulation Width:"/>
+                            <TextBox x:Name="SimWidthTextBox" Text="800" Margin="0,2,0,10"/>
 
-                <!-- Physics Toggles -->
-                <GroupBox Header="Physics" Margin="0,0,0,10">
-                    <StackPanel>
-                        <CheckBox x:Name="UseGravityCheckBox"
-                                 Content="Gravity"
-                                 IsChecked="True"
-                                 Margin="0,5"/>
-                        <CheckBox x:Name="UseCollisionsCheckBox"
-                                 Content="Collisions"
-                                 IsChecked="True"
-                                 Margin="0,5"/>
-                        <CheckBox x:Name="UseBoundariesCheckBox"
-                                 Content="Boundaries"
-                                 IsChecked="True"
-                                 Margin="0,5"/>
-                        <CheckBox x:Name="UseDampingCheckBox"
-                                 Content="Damping"
-                                 IsChecked="True"
-                                 Margin="0,5"/>
-                    </StackPanel>
-                </GroupBox>
+                            <TextBlock Text="Simulation Height:"/>
+                            <TextBox x:Name="SimHeightTextBox" Text="600" Margin="0,2,0,10"/>
 
-                <!-- Mouse Controls -->
-                <GroupBox Header="Mouse Controls" Margin="0,0,0,10">
-                    <StackPanel>
-                        <TextBlock Text="Left Click: Add particle"
-                                  Margin="0,2"
-                                  FontSize="11"/>
-                        <TextBlock Text="Right Click+Drag: Push particle"
-                                  Margin="0,2"
-                                  FontSize="11"/>
-                    </StackPanel>
-                </GroupBox>
+                            <TextBlock Text="Max Particles:"/>
+                            <TextBox x:Name="MaxParticlesTextBox" Text="1000" Margin="0,2,0,10"/>
+                        </StackPanel>
+                    </GroupBox>
 
-                <!-- Info -->
-                <GroupBox Header="Info">
-                    <StackPanel>
-                        <TextBlock x:Name="InfoTextBlock"
-                                  Text="Click Start to begin"
-                                  TextWrapping="Wrap"/>
-                    </StackPanel>
-                </GroupBox>
-            </StackPanel>
+                    <!-- Physics Parameters -->
+                    <GroupBox Header="Physics Parameters" Margin="0,0,0,10">
+                        <StackPanel>
+                            <TextBlock Text="Gravitational Constant:"/>
+                            <TextBox x:Name="GravityTextBox" Text="100.0" Margin="0,2,0,10"/>
+
+                            <TextBlock Text="Damping Factor:"/>
+                            <TextBox x:Name="DampingTextBox" Text="0.995" Margin="0,2,0,10"/>
+
+                            <TextBlock Text="Restitution (Bounciness):"/>
+                            <TextBox x:Name="RestitutionTextBox" Text="0.8" Margin="0,2,0,10"/>
+                        </StackPanel>
+                    </GroupBox>
+
+                    <!-- Particle Ranges -->
+                    <GroupBox Header="Particle Ranges" Margin="0,0,0,10">
+                        <StackPanel>
+                            <TextBlock Text="Min Mass:"/>
+                            <TextBox x:Name="MinMassTextBox" Text="1.0" Margin="0,2,0,10"/>
+
+                            <TextBlock Text="Max Mass:"/>
+                            <TextBox x:Name="MaxMassTextBox" Text="10.0" Margin="0,2,0,10"/>
+
+                            <TextBlock Text="Min Radius:"/>
+                            <TextBox x:Name="MinRadiusTextBox" Text="5.0" Margin="0,2,0,10"/>
+
+                            <TextBlock Text="Max Radius:"/>
+                            <TextBox x:Name="MaxRadiusTextBox" Text="20.0" Margin="0,2,0,10"/>
+
+                            <TextBlock Text="Max Initial Velocity:"/>
+                            <TextBox x:Name="MaxVelocityTextBox" Text="50.0" Margin="0,2,0,10"/>
+                        </StackPanel>
+                    </GroupBox>
+
+                    <!-- Physics Toggles -->
+                    <GroupBox Header="Physics Toggles" Margin="0,0,0,10">
+                        <StackPanel>
+                            <CheckBox x:Name="UseGravityCheckBox" Content="Gravity" IsChecked="True" Margin="0,3"/>
+                            <CheckBox x:Name="UseCollisionsCheckBox" Content="Collisions" IsChecked="True" Margin="0,3"/>
+                            <CheckBox x:Name="UseBoundariesCheckBox" Content="Boundaries" IsChecked="True" Margin="0,3"/>
+                            <CheckBox x:Name="UseDampingCheckBox" Content="Damping" IsChecked="True" Margin="0,3"/>
+                            <CheckBox x:Name="UseSpatialPartitioningCheckBox" Content="Spatial Partitioning" IsChecked="True" Margin="0,3"/>
+                        </StackPanel>
+                    </GroupBox>
+
+                    <!-- Ability Toggles -->
+                    <GroupBox Header="Ability System" Margin="0,0,0,10">
+                        <StackPanel>
+                            <CheckBox x:Name="UseAbilitiesCheckBox" Content="Enable Abilities" IsChecked="True" Margin="0,3" FontWeight="Bold"/>
+                            <CheckBox x:Name="UseEatingCheckBox" Content="Eating" IsChecked="True" Margin="0,3"/>
+                            <CheckBox x:Name="UseSplittingCheckBox" Content="Splitting" IsChecked="True" Margin="0,3"/>
+                            <CheckBox x:Name="UseReproductionCheckBox" Content="Reproduction" IsChecked="True" Margin="0,3"/>
+                            <CheckBox x:Name="UsePhasingCheckBox" Content="Phasing" IsChecked="True" Margin="0,3"/>
+                            <CheckBox x:Name="UseChaseCheckBox" Content="Chase" IsChecked="True" Margin="0,3"/>
+                            <CheckBox x:Name="UseFleeCheckBox" Content="Flee" IsChecked="True" Margin="0,3"/>
+                        </StackPanel>
+                    </GroupBox>
+
+                    <!-- Energy Parameters -->
+                    <GroupBox Header="Energy Parameters" Margin="0,0,0,10">
+                        <StackPanel>
+                            <TextBlock Text="Base Energy Capacity:"/>
+                            <TextBox x:Name="BaseEnergyTextBox" Text="100.0" Margin="0,2,0,10"/>
+
+                            <TextBlock Text="Passive Energy Drain:"/>
+                            <TextBox x:Name="PassiveDrainTextBox" Text="0.5" Margin="0,2,0,10"/>
+
+                            <TextBlock Text="Eating Energy Gain:"/>
+                            <TextBox x:Name="EatingGainTextBox" Text="0.8" Margin="0,2,0,10"/>
+
+                            <TextBlock Text="Size Ratio for Eating:"/>
+                            <TextBox x:Name="SizeRatioTextBox" Text="1.5" Margin="0,2,0,10"/>
+
+                            <TextBlock Text="Vision Range Multiplier:"/>
+                            <TextBox x:Name="VisionRangeTextBox" Text="5.0" Margin="0,2,0,10"/>
+
+                            <TextBlock Text="Hunger Threshold:"/>
+                            <TextBox x:Name="HungerThresholdTextBox" Text="0.3" Margin="0,2,0,10"/>
+                        </StackPanel>
+                    </GroupBox>
+
+                    <!-- Chase/Flee Parameters -->
+                    <GroupBox Header="Chase/Flee Parameters" Margin="0,0,0,10">
+                        <StackPanel>
+                            <TextBlock Text="Chase Force:"/>
+                            <TextBox x:Name="ChaseForceTextBox" Text="200.0" Margin="0,2,0,10"/>
+
+                            <TextBlock Text="Flee Force:"/>
+                            <TextBox x:Name="FleeForceTextBox" Text="250.0" Margin="0,2,0,10"/>
+
+                            <TextBlock Text="Chase Energy Cost:"/>
+                            <TextBox x:Name="ChaseEnergyCostTextBox" Text="0.1" Margin="0,2,0,10"/>
+
+                            <TextBlock Text="Flee Energy Cost:"/>
+                            <TextBox x:Name="FleeEnergyCostTextBox" Text="0.15" Margin="0,2,0,10"/>
+                        </StackPanel>
+                    </GroupBox>
+
+                    <!-- Splitting Parameters -->
+                    <GroupBox Header="Splitting Parameters" Margin="0,0,0,10">
+                        <StackPanel>
+                            <TextBlock Text="Splitting Energy Cost:"/>
+                            <TextBox x:Name="SplittingEnergyCostTextBox" Text="50.0" Margin="0,2,0,10"/>
+
+                            <TextBlock Text="Splitting Cooldown:"/>
+                            <TextBox x:Name="SplittingCooldownTextBox" Text="5.0" Margin="0,2,0,10"/>
+
+                            <TextBlock Text="Splitting Separation Force:"/>
+                            <TextBox x:Name="SplittingSeparationTextBox" Text="100.0" Margin="0,2,0,10"/>
+                        </StackPanel>
+                    </GroupBox>
+
+                    <!-- Reproduction Parameters -->
+                    <GroupBox Header="Reproduction Parameters" Margin="0,0,0,10">
+                        <StackPanel>
+                            <TextBlock Text="Reproduction Energy Cost:"/>
+                            <TextBox x:Name="ReproductionEnergyCostTextBox" Text="40.0" Margin="0,2,0,10"/>
+
+                            <TextBlock Text="Reproduction Cooldown:"/>
+                            <TextBox x:Name="ReproductionCooldownTextBox" Text="8.0" Margin="0,2,0,10"/>
+
+                            <TextBlock Text="Reproduction Mass Transfer:"/>
+                            <TextBox x:Name="ReproductionMassTransferTextBox" Text="0.3" Margin="0,2,0,10"/>
+
+                            <TextBlock Text="Reproduction Energy Transfer:"/>
+                            <TextBox x:Name="ReproductionEnergyTransferTextBox" Text="0.5" Margin="0,2,0,10"/>
+                        </StackPanel>
+                    </GroupBox>
+
+                    <!-- Phasing Parameters -->
+                    <GroupBox Header="Phasing Parameters" Margin="0,0,0,10">
+                        <StackPanel>
+                            <TextBlock Text="Phasing Energy Cost:"/>
+                            <TextBox x:Name="PhasingEnergyCostTextBox" Text="30.0" Margin="0,2,0,10"/>
+
+                            <TextBlock Text="Phasing Cooldown:"/>
+                            <TextBox x:Name="PhasingCooldownTextBox" Text="10.0" Margin="0,2,0,10"/>
+
+                            <TextBlock Text="Phasing Duration:"/>
+                            <TextBox x:Name="PhasingDurationTextBox" Text="2.0" Margin="0,2,0,10"/>
+                        </StackPanel>
+                    </GroupBox>
+
+                    <!-- Ability Probabilities -->
+                    <GroupBox Header="Ability Probabilities" Margin="0,0,0,10">
+                        <StackPanel>
+                            <TextBlock Text="Eating Probability:"/>
+                            <TextBox x:Name="EatingProbTextBox" Text="0.7" Margin="0,2,0,10"/>
+
+                            <TextBlock Text="Splitting Probability:"/>
+                            <TextBox x:Name="SplittingProbTextBox" Text="0.3" Margin="0,2,0,10"/>
+
+                            <TextBlock Text="Reproduction Probability:"/>
+                            <TextBox x:Name="ReproductionProbTextBox" Text="0.4" Margin="0,2,0,10"/>
+
+                            <TextBlock Text="Phasing Probability:"/>
+                            <TextBox x:Name="PhasingProbTextBox" Text="0.2" Margin="0,2,0,10"/>
+
+                            <TextBlock Text="Chase Probability:"/>
+                            <TextBox x:Name="ChaseProbTextBox" Text="0.6" Margin="0,2,0,10"/>
+
+                            <TextBlock Text="Flee Probability:"/>
+                            <TextBox x:Name="FleeProbTextBox" Text="0.5" Margin="0,2,0,10"/>
+                        </StackPanel>
+                    </GroupBox>
+
+                    <!-- Type Distribution -->
+                    <GroupBox Header="Type Distribution" Margin="0,0,0,10">
+                        <StackPanel>
+                            <TextBlock Text="Predator Probability:"/>
+                            <TextBox x:Name="PredatorProbTextBox" Text="0.3" Margin="0,2,0,10"/>
+
+                            <TextBlock Text="Herbivore Probability:"/>
+                            <TextBox x:Name="HerbivoreProbTextBox" Text="0.3" Margin="0,2,0,10"/>
+
+                            <TextBlock Text="Social Probability:"/>
+                            <TextBox x:Name="SocialProbTextBox" Text="0.2" Margin="0,2,0,10"/>
+
+                            <TextBlock Text="Solitary Probability:"/>
+                            <TextBox x:Name="SolitaryProbTextBox" Text="0.1" Margin="0,2,0,10"/>
+
+                            <TextBlock Text="Neutral Probability:"/>
+                            <TextBox x:Name="NeutralProbTextBox" Text="0.1" Margin="0,2,0,10"/>
+                        </StackPanel>
+                    </GroupBox>
+
+                    <!-- Mouse Controls -->
+                    <GroupBox Header="Mouse Controls" Margin="0,0,0,10">
+                        <StackPanel>
+                            <TextBlock Text="Left Click: Add particle" Margin="0,2" FontSize="11"/>
+                            <TextBlock Text="Right Click+Drag: Push particle" Margin="0,2" FontSize="11"/>
+                        </StackPanel>
+                    </GroupBox>
+
+                    <!-- Info -->
+                    <GroupBox Header="Info">
+                        <StackPanel>
+                            <TextBlock x:Name="InfoTextBlock" Text="Click Start to begin" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </GroupBox>
+                </StackPanel>
+            </ScrollViewer>
         </Border>
     </Grid>
 </Window>

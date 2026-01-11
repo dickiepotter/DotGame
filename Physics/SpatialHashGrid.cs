@@ -106,6 +106,13 @@ public class SpatialHashGrid : ICollisionDetector
 
     private bool AreColliding(Particle a, Particle b)
     {
+        // Skip collision if either particle is phasing
+        if ((a.HasAbilities && a.Abilities!.IsPhasing) ||
+            (b.HasAbilities && b.Abilities!.IsPhasing))
+        {
+            return false;
+        }
+
         float dx = a.Position.X - b.Position.X;
         float dy = a.Position.Y - b.Position.Y;
         float distanceSquared = dx * dx + dy * dy;

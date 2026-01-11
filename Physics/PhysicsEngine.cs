@@ -1,5 +1,6 @@
 using System.Numerics;
 using DotGame.Models;
+using DotGame.Abilities;
 
 namespace DotGame.Physics;
 
@@ -10,6 +11,7 @@ public class PhysicsEngine
     private readonly GravityCalculator _gravityCalculator;
     private readonly BoundaryHandler _boundaryHandler;
     private readonly DampingApplier _dampingApplier;
+    private readonly AbilityManager? _abilityManager;
 
     public PhysicsEngine(SimulationConfig config)
     {
@@ -17,6 +19,12 @@ public class PhysicsEngine
         _gravityCalculator = new GravityCalculator(config);
         _boundaryHandler = new BoundaryHandler(config);
         _dampingApplier = new DampingApplier(config);
+
+        // Initialize ability manager if abilities are enabled
+        if (_config.UseAbilities)
+        {
+            _abilityManager = new AbilityManager(config);
+        }
 
         // Choose collision detector based on config and particle count
         // Use spatial partitioning for >50 particles if enabled
@@ -32,6 +40,22 @@ public class PhysicsEngine
 
     public void Update(List<Particle> particles, double deltaTime)
     {
+        // 0. Update abilities (before physics)
+        if (_config.UseAbilities && _abilityManager != null)
+        {
+            var context = new AbilityContext
+            {
+                AllParticles = particles,
+                Config = _config,
+                DeltaTime = deltaTime,
+                SpatialGrid = _collisionDetector as SpatialHashGrid,
+                ParticlesToAdd = new List<Particle>(),
+                ParticlesToRemove = new HashSet<int>()
+            };
+
+            _abilityManager.UpdateAbilities(particles, context);
+        }
+
         // 1. Apply gravity forces (if enabled)
         if (_config.UseGravity)
         {
@@ -56,6 +80,7 @@ public class PhysicsEngine
         // 5. Detect and resolve particle collisions (if enabled)
         if (_config.UseCollisions)
         {
+            // Skip phasing particles in collisions
             _collisionDetector.DetectAndResolve(particles);
         }
     }
