@@ -15,7 +15,11 @@
             <Canvas x:Name="SimulationCanvas"
                     Width="800"
                     Height="600"
-                    Background="WhiteSmoke"/>
+                    Background="WhiteSmoke"
+                    MouseLeftButtonDown="SimulationCanvas_MouseLeftButtonDown"
+                    MouseRightButtonDown="SimulationCanvas_MouseRightButtonDown"
+                    MouseMove="SimulationCanvas_MouseMove"
+                    MouseRightButtonUp="SimulationCanvas_MouseRightButtonUp"/>
         </Border>
 
         <!-- Control Panel -->
@@ -86,6 +90,18 @@
                                  Content="Damping"
                                  IsChecked="True"
                                  Margin="0,5"/>
+                    </StackPanel>
+                </GroupBox>
+
+                <!-- Mouse Controls -->
+                <GroupBox Header="Mouse Controls" Margin="0,0,0,10">
+                    <StackPanel>
+                        <TextBlock Text="Left Click: Add particle"
+                                  Margin="0,2"
+                                  FontSize="11"/>
+                        <TextBlock Text="Right Click+Drag: Push particle"
+                                  Margin="0,2"
+                                  FontSize="11"/>
                     </StackPanel>
                 </GroupBox>
 
