@@ -1,0 +1,14 @@
+/home/user/DotGame/bin/Debug/net8.0/GameOfLife
+/home/user/DotGame/bin/Debug/net8.0/GameOfLife.deps.json
+/home/user/DotGame/bin/Debug/net8.0/GameOfLife.runtimeconfig.json
+/home/user/DotGame/bin/Debug/net8.0/GameOfLife.dll
+/home/user/DotGame/bin/Debug/net8.0/GameOfLife.pdb
+/home/user/DotGame/obj/Debug/net8.0/GameOfLife.GeneratedMSBuildEditorConfig.editorconfig
+/home/user/DotGame/obj/Debug/net8.0/GameOfLife.AssemblyInfoInputs.cache
+/home/user/DotGame/obj/Debug/net8.0/GameOfLife.AssemblyInfo.cs
+/home/user/DotGame/obj/Debug/net8.0/GameOfLife.csproj.CoreCompileInputs.cache
+/home/user/DotGame/obj/Debug/net8.0/GameOfLife.dll
+/home/user/DotGame/obj/Debug/net8.0/refint/GameOfLife.dll
+/home/user/DotGame/obj/Debug/net8.0/GameOfLife.pdb
+/home/user/DotGame/obj/Debug/net8.0/GameOfLife.genruntimeconfig.cache
+/home/user/DotGame/obj/Debug/net8.0/ref/GameOfLife.dll

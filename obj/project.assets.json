@@ -1,0 +1,50 @@
+{
+  "version": 3,
+  "targets": {
+    "net8.0": {}
+  },
+  "libraries": {},
+  "projectFileDependencyGroups": {
+    "net8.0": []
+  },
+  "packageFolders": {
+    "/root/.nuget/packages/": {}
+  },
+  "project": {
+    "version": "1.0.0",
+    "restore": {
+      "projectUniqueName": "/home/user/DotGame/GameOfLife.csproj",
+      "projectName": "GameOfLife",
+      "projectPath": "/home/user/DotGame/GameOfLife.csproj",
+      "packagesPath": "/root/.nuget/packages/",
+      "outputPath": "/home/user/DotGame/obj/",
+      "projectStyle": "PackageReference",
+      "configFilePaths": [],
+      "originalTargetFrameworks": [
+        "net8.0"
+      ],
+      "sources": {},
+      "frameworks": {
+        "net8.0": {
+          "targetAlias": "net8.0",
+          "projectReferences": {}
+        }
+      }
+    },
+    "frameworks": {
+      "net8.0": {
+        "targetAlias": "net8.0",
+        "imports": [
+          "net461",
+          "net462",
+          "net47",
+          "net471",
+          "net472",
+          "net48"
+        ],
+        "assetTargetFallback": true,
+        "warn": true
+      }
+    }
+  }
+}
