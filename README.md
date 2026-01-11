@@ -32,6 +32,55 @@ Each dot type has a unique color and behavior:
 13. **Grower** (Brown) - Continuously grows over time
 14. **Divider** (Cyan) - Splits into multiple dots when large enough
 
+## Download & Installation
+
+### Pre-built Binaries
+
+Download the latest release for your platform from the `releases/` directory:
+
+**Windows (64-bit):**
+```
+releases/dotgame-windows-x64.exe
+```
+- **Size:** 3.7 MB
+- **Platform:** Windows 10/11 (x64)
+- **Run:** Double-click `dotgame-windows-x64.exe` or run from command prompt
+
+**Linux (64-bit):**
+```
+releases/dotgame-linux-x64
+```
+- **Size:** 1.6 MB
+- **Platform:** Linux x86_64
+- **Run:** `chmod +x dotgame-linux-x64 && ./dotgame-linux-x64`
+
+**Verify Downloads:**
+Check file integrity using SHA256 checksums in `releases/checksums.txt`
+
+### Building from Source
+
+If you prefer to build from source or need a different platform:
+
+**Prerequisites:**
+- Rust 1.70+ (install from [rustup.rs](https://rustup.rs))
+
+**Build for your platform:**
+```bash
+cargo build --release
+```
+
+The binary will be in `target/release/dotgame` (or `dotgame.exe` on Windows)
+
+**Cross-compile for other platforms:**
+```bash
+# Use the provided script
+./build-releases.sh
+
+# Or manually:
+cargo build --release --target x86_64-pc-windows-gnu  # Windows
+cargo build --release --target x86_64-apple-darwin     # macOS
+```
+
 ## Controls
 
 ### Keyboard
@@ -91,26 +140,6 @@ The game uses a `DotConfig` structure with these tunable parameters:
 ```
 
 Press **S** to save your current settings or **L** to load saved settings.
-
-## Building and Running
-
-### Prerequisites
-
-- Rust 1.70+ (install from [rustup.rs](https://rustup.rs))
-
-### Build
-
-```bash
-cargo build --release
-```
-
-### Run
-
-```bash
-cargo run --release
-```
-
-The `--release` flag is recommended for optimal performance (60 FPS target).
 
 ## Game Modes
 
