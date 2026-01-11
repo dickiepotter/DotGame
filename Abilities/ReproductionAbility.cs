@@ -86,6 +86,10 @@ public class ReproductionAbility : IAbility
         // Inherit abilities from parent (with some randomness)
         offspring.Abilities = InheritAbilities(particle.Abilities, offspringMass);
 
+        // Update colors based on abilities (offspring may have different abilities)
+        particle.Color = Utilities.ColorGenerator.GetColorForAbilities(particle.Abilities);
+        offspring.Color = Utilities.ColorGenerator.GetColorForAbilities(offspring.Abilities);
+
         // Apply separation impulse to push particles apart
         Vector2 separationDirection = GenerateRandomDirection();
         float separationForce = (float)_config.SplittingSeparationForce * 0.8f; // Slightly less force

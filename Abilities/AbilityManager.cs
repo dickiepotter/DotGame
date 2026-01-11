@@ -31,6 +31,9 @@ public class AbilityManager
         // Drain passive energy
         DrainPassiveEnergy(particles, context.DeltaTime);
 
+        // Update particle colors based on current energy/abilities
+        UpdateColors(particles);
+
         // Update temporary states (phasing, speed boost, camouflage)
         UpdateTemporaryStates(particles, context.DeltaTime);
 
@@ -84,6 +87,29 @@ public class AbilityManager
         }
     }
 
+    private void UpdateColors(List<Particle> particles)
+    {
+        foreach (var particle in particles)
+        {
+            if (!particle.HasAbilities) continue;
+
+            // Update color based on current abilities and energy level
+            // This creates dynamic visual feedback as particles gain/lose energy
+            var newColor = Utilities.ColorGenerator.GetColorForAbilities(particle.Abilities);
+
+            // Preserve alpha channel for phasing particles (semi-transparent)
+            if (particle.Abilities.IsPhasing)
+            {
+                particle.Color = System.Windows.Media.Color.FromArgb(128,
+                    newColor.R, newColor.G, newColor.B);
+            }
+            else
+            {
+                particle.Color = newColor;
+            }
+        }
+    }
+
     private void UpdateTemporaryStates(List<Particle> particles, double deltaTime)
     {
         foreach (var particle in particles)
@@ -100,9 +126,7 @@ public class AbilityManager
                 {
                     abilities.IsPhasing = false;
                     abilities.CurrentState = AbilityState.Idle;
-                    // Restore normal color (remove transparency)
-                    particle.Color = System.Windows.Media.Color.FromArgb(255,
-                        particle.Color.R, particle.Color.G, particle.Color.B);
+                    // Color will be restored automatically by UpdateColors
                 }
             }
 

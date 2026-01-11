@@ -1,4 +1,5 @@
 using System.Windows.Media;
+using DotGame.Models;
 
 namespace DotGame.Utilities;
 
@@ -19,5 +20,76 @@ public static class ColorGenerator
         byte green = (byte)(128);
 
         return Color.FromRgb(red, green, blue);
+    }
+
+    public static Color GetColorForAbilities(ParticleAbilities abilities)
+    {
+        // Base color on particle type
+        Color baseColor = abilities.Type switch
+        {
+            ParticleType.Predator => Color.FromRgb(200, 50, 50),    // Red - aggressive
+            ParticleType.Herbivore => Color.FromRgb(100, 200, 100), // Green - peaceful
+            ParticleType.Social => Color.FromRgb(100, 150, 230),    // Blue - cooperative
+            ParticleType.Solitary => Color.FromRgb(180, 100, 200),  // Purple - independent
+            ParticleType.Neutral => Color.FromRgb(180, 180, 180),   // Gray - balanced
+            _ => Color.FromRgb(128, 128, 128)
+        };
+
+        // Modify color based on abilities
+        int r = baseColor.R;
+        int g = baseColor.G;
+        int b = baseColor.B;
+
+        // Eating ability adds red tint (hunter)
+        if (abilities.HasAbility(AbilitySet.Eating))
+        {
+            r = Math.Min(255, r + 40);
+        }
+
+        // Splitting ability adds green tint (growth)
+        if (abilities.HasAbility(AbilitySet.Splitting))
+        {
+            g = Math.Min(255, g + 30);
+        }
+
+        // Reproduction ability adds warmth (yellow tint)
+        if (abilities.HasAbility(AbilitySet.Reproduction))
+        {
+            r = Math.Min(255, r + 20);
+            g = Math.Min(255, g + 20);
+        }
+
+        // Phasing ability adds blue/cyan tint (ethereal)
+        if (abilities.HasAbility(AbilitySet.Phasing))
+        {
+            b = Math.Min(255, b + 40);
+            g = Math.Min(255, g + 20);
+        }
+
+        // Chase ability intensifies existing color
+        if (abilities.HasAbility(AbilitySet.Chase))
+        {
+            r = Math.Min(255, (int)(r * 1.1));
+            g = Math.Min(255, (int)(g * 1.1));
+            b = Math.Min(255, (int)(b * 1.1));
+        }
+
+        // Flee ability reduces saturation slightly (cautious)
+        if (abilities.HasAbility(AbilitySet.Flee))
+        {
+            r = (r + 128) / 2;
+            g = (g + 128) / 2;
+            b = (b + 128) / 2;
+        }
+
+        // Dim based on energy level
+        double energyFactor = abilities.Energy / abilities.MaxEnergy;
+        energyFactor = Math.Max(0.4, energyFactor); // Don't go too dark
+
+        r = (int)(r * energyFactor);
+        g = (int)(g * energyFactor);
+        b = (int)(b * energyFactor);
+
+        return Color.FromRgb((byte)r, (byte)g, (byte)b);
     }
 }

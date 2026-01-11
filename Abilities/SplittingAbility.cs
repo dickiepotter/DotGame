@@ -72,6 +72,10 @@ public class SplittingAbility : IAbility
         // Clone abilities
         offspring.Abilities = CloneAbilities(particle.Abilities, offspring.Mass);
 
+        // Update colors based on abilities (they may differ slightly due to energy)
+        particle.Color = Utilities.ColorGenerator.GetColorForAbilities(particle.Abilities);
+        offspring.Color = Utilities.ColorGenerator.GetColorForAbilities(offspring.Abilities);
+
         // Apply separation impulse to push particles apart
         Vector2 separationDirection = GenerateRandomDirection();
         float separationForce = (float)_config.SplittingSeparationForce;

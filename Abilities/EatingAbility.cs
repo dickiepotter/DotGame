@@ -59,14 +59,24 @@ public class EatingAbility : IAbility
 
             // Inherit random abilities from prey (10% chance per ability)
             InheritAbilities(particle, prey);
-        }
 
-        // Update color based on new mass
-        particle.Color = ColorGenerator.GetColorForMass(
-            particle.Mass,
-            _config.MinMass,
-            _config.MaxMass
-        );
+            // Update color based on abilities (may have changed after inheritance)
+            particle.Color = ColorGenerator.GetColorForAbilities(particle.Abilities);
+        }
+        else if (particle.HasAbilities)
+        {
+            // Update color even if prey has no abilities (energy changed)
+            particle.Color = ColorGenerator.GetColorForAbilities(particle.Abilities);
+        }
+        else
+        {
+            // Fallback to mass-based color if no abilities
+            particle.Color = ColorGenerator.GetColorForMass(
+                particle.Mass,
+                _config.MinMass,
+                _config.MaxMass
+            );
+        }
 
         // Mark prey for removal
         context.ParticlesToRemove.Add(prey.Id);

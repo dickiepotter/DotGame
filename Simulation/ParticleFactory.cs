@@ -42,7 +42,6 @@ public class ParticleFactory
                 Velocity = velocity,
                 Mass = mass,
                 Radius = radius,
-                Color = ColorGenerator.GetColorForMass(mass, _config.MinMass, _config.MaxMass),
                 PreviousPosition = position
             };
 
@@ -50,6 +49,13 @@ public class ParticleFactory
             if (_config.UseAbilities)
             {
                 particle.Abilities = CreateRandomAbilities(mass);
+                // Set color based on abilities
+                particle.Color = ColorGenerator.GetColorForAbilities(particle.Abilities);
+            }
+            else
+            {
+                // Fallback to mass-based color if abilities are disabled
+                particle.Color = ColorGenerator.GetColorForMass(mass, _config.MinMass, _config.MaxMass);
             }
 
             particles.Add(particle);
