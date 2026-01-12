@@ -129,4 +129,39 @@ public class ParticleAbilities
     {
         Cooldowns[abilityType] = new CooldownTimer(duration);
     }
+
+    // Type-based synergy bonuses
+    public double GetChaseForceMult() => Type switch
+    {
+        ParticleType.Predator => 1.3,  // +30% chase force
+        ParticleType.Herbivore => 0.7, // -30% chase force
+        _ => 1.0
+    };
+
+    public double GetFleeForceMult() => Type switch
+    {
+        ParticleType.Herbivore => 1.2,  // +20% flee force
+        ParticleType.Predator => 0.8,   // -20% flee force
+        _ => 1.0
+    };
+
+    public double GetEnergyCostMult() => Type switch
+    {
+        ParticleType.Neutral => 0.9,    // Jack-of-all-trades: -10% all costs
+        _ => 1.0
+    };
+
+    public double GetReproductionMult() => Type switch
+    {
+        ParticleType.Herbivore => 1.3,  // +30% reproduction energy transfer
+        ParticleType.Social => 1.2,     // +20% reproduction energy transfer
+        _ => 1.0
+    };
+
+    public double GetVisionMult() => Type switch
+    {
+        ParticleType.Predator => 1.2,   // +20% vision range
+        ParticleType.Solitary => 1.1,   // +10% vision range
+        _ => 1.0
+    };
 }

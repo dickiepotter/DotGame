@@ -40,7 +40,11 @@ public class ChaseAbility : IAbility
 
             // Chase force scaled by hunger (hungrier = faster chase)
             float hungerMultiplier = (float)(1.0 - particle.EnergyPercentage);
-            float chaseForce = (float)_config.ChaseForce * (0.5f + hungerMultiplier * 0.5f);
+            float baseForce = (float)_config.ChaseForce * (0.5f + hungerMultiplier * 0.5f);
+
+            // Apply type synergy bonus
+            float typeMult = (float)particle.Abilities.GetChaseForceMult();
+            float chaseForce = baseForce * typeMult;
 
             // Apply force
             particle.Velocity += direction * chaseForce * (float)context.DeltaTime;
@@ -49,7 +53,8 @@ public class ChaseAbility : IAbility
         // Drain energy continuously while chasing
         if (particle.HasAbilities)
         {
-            particle.Abilities.Energy -= _config.ChaseEnergyCost * context.DeltaTime;
+            double costMult = particle.Abilities.GetEnergyCostMult();
+            particle.Abilities.Energy -= _config.ChaseEnergyCost * costMult * context.DeltaTime;
             particle.Abilities.CurrentState = AbilityState.Hunting;
             particle.Abilities.TargetParticleId = target.Id;
         }

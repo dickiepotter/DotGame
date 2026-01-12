@@ -90,16 +90,32 @@ public class PhysicsEngine
     private void IntegrateMotion(List<Particle> particles, double deltaTime)
     {
         float dt = (float)deltaTime;
+        float maxVelocity = (float)_config.MaxInitialVelocity * 2.0f; // 2x initial max
 
         foreach (var particle in particles)
         {
             // Store previous position for potential use
             particle.PreviousPosition = particle.Position;
 
+            // Apply speed multiplier if speed boost is active
+            float velocityMultiplier = 1.0f;
+            if (particle.HasAbilities && particle.Abilities.IsSpeedBoosted)
+            {
+                velocityMultiplier = 2.0f; // Double speed when boosted
+            }
+
+            // Clamp velocity to prevent extreme speeds
+            float speed = particle.Velocity.Length();
+            float effectiveMaxVelocity = maxVelocity * velocityMultiplier;
+            if (speed > effectiveMaxVelocity)
+            {
+                particle.Velocity = Vector2.Normalize(particle.Velocity) * effectiveMaxVelocity;
+            }
+
             // Semi-implicit Euler integration
             // Velocity has already been updated by forces
-            // Now update position based on velocity
-            particle.Position += particle.Velocity * dt;
+            // Now update position based on velocity (with speed boost if active)
+            particle.Position += particle.Velocity * velocityMultiplier * dt;
         }
     }
 }

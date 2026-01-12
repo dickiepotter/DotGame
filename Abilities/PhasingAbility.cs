@@ -16,7 +16,7 @@ public class PhasingAbility : IAbility
     }
 
     public AbilityType Type => AbilityType.Phasing;
-    public double EnergyCost => _config.PhasingEnergyCost;
+    public double EnergyCost => 0; // Calculated dynamically based on max energy
     public double CooldownDuration => _config.PhasingCooldown;
 
     public bool CanExecute(Particle particle, AbilityContext context)
@@ -26,9 +26,11 @@ public class PhasingAbility : IAbility
         // Already phasing
         if (particle.Abilities!.IsPhasing) return false;
 
-        // Check energy requirement (need at least 30% energy)
-        if (particle.EnergyPercentage < 0.3) return false;
-        if (particle.Abilities.Energy < EnergyCost) return false;
+        // Calculate energy cost as percentage of max energy
+        double cost = particle.Abilities.MaxEnergy * _config.PhasingEnergyCostPercent;
+
+        // Check energy requirement
+        if (particle.Abilities.Energy < cost) return false;
 
         // Only phase when threatened and cornered
         var visible = VisionSystem.GetVisibleParticles(particle, context);
@@ -47,8 +49,9 @@ public class PhasingAbility : IAbility
     {
         if (!particle.HasAbilities) return;
 
-        // Cost energy
-        particle.Abilities!.Energy -= EnergyCost;
+        // Calculate and deduct energy cost
+        double cost = particle.Abilities!.MaxEnergy * _config.PhasingEnergyCostPercent;
+        particle.Abilities.Energy -= cost;
 
         // Enable phasing
         particle.Abilities.IsPhasing = true;

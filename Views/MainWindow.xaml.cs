@@ -1,9 +1,11 @@
 using System.Numerics;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Controls;
 using System.Text.Json;
 using System.IO;
 using Microsoft.Win32;
+using System.Windows.Threading;
 using DotGame.Models;
 using DotGame.Simulation;
 using System.Collections.Generic;
@@ -14,6 +16,7 @@ public partial class MainWindow : Window
 {
     private SimulationManager? _simulationManager;
     private SimulationConfig _config;
+    private DispatcherTimer? _uiUpdateTimer;
 
     // Mouse interaction state
     private Particle? _draggedParticle;
@@ -24,6 +27,21 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         _config = new SimulationConfig();
+
+        // Populate preset ComboBox
+        foreach (var presetName in ConfigurationPresets.GetPresetNames())
+        {
+            PresetComboBox.Items.Add(presetName);
+        }
+        PresetComboBox.SelectedIndex = 0; // Select "Default"
+
+        // Setup UI update timer (update FPS and stats every 200ms)
+        _uiUpdateTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(200)
+        };
+        _uiUpdateTimer.Tick += UiUpdateTimer_Tick;
+        _uiUpdateTimer.Start();
     }
 
     private void Window_Loaded(object sender, RoutedEventArgs e)
@@ -59,7 +77,7 @@ public partial class MainWindow : Window
     {
         // Basic Configuration
         if (int.TryParse(ParticleCountTextBox.Text, out int particleCount))
-            _config.ParticleCount = Math.Max(1, Math.Min(500, particleCount));
+            _config.ParticleCount = particleCount;
 
         if (int.TryParse(SeedTextBox.Text, out int seed))
             _config.RandomSeed = seed;
@@ -214,6 +232,10 @@ public partial class MainWindow : Window
 
         if (double.TryParse(NeutralProbTextBox.Text, out double neutralProb))
             _config.NeutralProbability = neutralProb;
+
+        // Validate and normalize configuration
+        _config.ValidateAndClamp();
+        _config.NormalizeTypeProbabilities();
     }
 
     private void UpdateInfo()
@@ -226,6 +248,27 @@ public partial class MainWindow : Window
                                 $"Particles: {particleCount}\n" +
                                 $"Seed: {_config.RandomSeed}";
         }
+    }
+
+    private void UiUpdateTimer_Tick(object? sender, EventArgs e)
+    {
+        if (_simulationManager == null) return;
+
+        // Update FPS display
+        var perfMonitor = _simulationManager.PerformanceMonitor;
+        FpsTextBlock.Text = $"{perfMonitor.FPS:F1}";
+
+        // Color code FPS (green = good, yellow = ok, red = bad)
+        if (perfMonitor.FPS >= 50)
+            FpsTextBlock.Foreground = System.Windows.Media.Brushes.Green;
+        else if (perfMonitor.FPS >= 30)
+            FpsTextBlock.Foreground = System.Windows.Media.Brushes.Orange;
+        else
+            FpsTextBlock.Foreground = System.Windows.Media.Brushes.Red;
+
+        // Update particle count
+        int particleCount = _simulationManager.Particles?.Count ?? 0;
+        ParticleCountTextBlock.Text = $"{particleCount} / {_config.MaxParticles}";
     }
 
     private void StartButton_Click(object sender, RoutedEventArgs e)
@@ -489,6 +532,11 @@ public partial class MainWindow : Window
                 if (loadedConfig != null)
                 {
                     _config = loadedConfig;
+
+                    // Validate loaded configuration
+                    _config.ValidateAndClamp();
+                    _config.NormalizeTypeProbabilities();
+
                     PopulateUIFromConfig();
 
                     MessageBox.Show($"Settings loaded successfully from:\n{openFileDialog.FileName}",
@@ -511,22 +559,32 @@ public partial class MainWindow : Window
     private void PopulateUIFromConfig()
     {
         // Basic Configuration
+        ParticleCountSlider.Value = _config.ParticleCount;
         ParticleCountTextBox.Text = _config.ParticleCount.ToString();
         SeedTextBox.Text = _config.RandomSeed.ToString();
         SimWidthTextBox.Text = _config.SimulationWidth.ToString();
         SimHeightTextBox.Text = _config.SimulationHeight.ToString();
+        MaxParticlesSlider.Value = _config.MaxParticles;
         MaxParticlesTextBox.Text = _config.MaxParticles.ToString();
 
         // Physics Parameters
+        GravitySlider.Value = _config.GravitationalConstant;
         GravityTextBox.Text = _config.GravitationalConstant.ToString();
+        DampingSlider.Value = _config.DampingFactor;
         DampingTextBox.Text = _config.DampingFactor.ToString();
+        RestitutionSlider.Value = _config.RestitutionCoefficient;
         RestitutionTextBox.Text = _config.RestitutionCoefficient.ToString();
 
         // Particle Ranges
+        MinMassSlider.Value = _config.MinMass;
         MinMassTextBox.Text = _config.MinMass.ToString();
+        MaxMassSlider.Value = _config.MaxMass;
         MaxMassTextBox.Text = _config.MaxMass.ToString();
+        MinRadiusSlider.Value = _config.MinRadius;
         MinRadiusTextBox.Text = _config.MinRadius.ToString();
+        MaxRadiusSlider.Value = _config.MaxRadius;
         MaxRadiusTextBox.Text = _config.MaxRadius.ToString();
+        MaxVelocitySlider.Value = _config.MaxInitialVelocity;
         MaxVelocityTextBox.Text = _config.MaxInitialVelocity.ToString();
 
         // Physics Toggles
@@ -546,48 +604,131 @@ public partial class MainWindow : Window
         UseFleeCheckBox.IsChecked = _config.UseFlee;
 
         // Energy Parameters
+        BaseEnergySlider.Value = _config.BaseEnergyCapacity;
         BaseEnergyTextBox.Text = _config.BaseEnergyCapacity.ToString();
+        PassiveDrainSlider.Value = _config.PassiveEnergyDrain;
         PassiveDrainTextBox.Text = _config.PassiveEnergyDrain.ToString();
+        EatingGainSlider.Value = _config.EatingEnergyGain;
         EatingGainTextBox.Text = _config.EatingEnergyGain.ToString();
+        SizeRatioSlider.Value = _config.SizeRatioForEating;
         SizeRatioTextBox.Text = _config.SizeRatioForEating.ToString();
+        VisionRangeSlider.Value = _config.VisionRangeMultiplier;
         VisionRangeTextBox.Text = _config.VisionRangeMultiplier.ToString();
+        HungerThresholdSlider.Value = _config.HungerThreshold;
         HungerThresholdTextBox.Text = _config.HungerThreshold.ToString();
 
         // Chase/Flee Parameters
+        ChaseForceSlider.Value = _config.ChaseForce;
         ChaseForceTextBox.Text = _config.ChaseForce.ToString();
+        FleeForceSlider.Value = _config.FleeForce;
         FleeForceTextBox.Text = _config.FleeForce.ToString();
+        ChaseEnergyCostSlider.Value = _config.ChaseEnergyCost;
         ChaseEnergyCostTextBox.Text = _config.ChaseEnergyCost.ToString();
+        FleeEnergyCostSlider.Value = _config.FleeEnergyCost;
         FleeEnergyCostTextBox.Text = _config.FleeEnergyCost.ToString();
 
         // Splitting Parameters
         SplittingEnergyCostTextBox.Text = _config.SplittingEnergyCost.ToString();
+        SplittingCooldownSlider.Value = _config.SplittingCooldown;
         SplittingCooldownTextBox.Text = _config.SplittingCooldown.ToString();
         SplittingSeparationTextBox.Text = _config.SplittingSeparationForce.ToString();
 
         // Reproduction Parameters
         ReproductionEnergyCostTextBox.Text = _config.ReproductionEnergyCost.ToString();
+        ReproductionCooldownSlider.Value = _config.ReproductionCooldown;
         ReproductionCooldownTextBox.Text = _config.ReproductionCooldown.ToString();
         ReproductionMassTransferTextBox.Text = _config.ReproductionMassTransfer.ToString();
         ReproductionEnergyTransferTextBox.Text = _config.ReproductionEnergyTransfer.ToString();
 
         // Phasing Parameters
         PhasingEnergyCostTextBox.Text = _config.PhasingEnergyCost.ToString();
+        PhasingCooldownSlider.Value = _config.PhasingCooldown;
         PhasingCooldownTextBox.Text = _config.PhasingCooldown.ToString();
+        PhasingDurationSlider.Value = _config.PhasingDuration;
         PhasingDurationTextBox.Text = _config.PhasingDuration.ToString();
 
         // Ability Probabilities
+        EatingProbSlider.Value = _config.EatingProbability;
         EatingProbTextBox.Text = _config.EatingProbability.ToString();
+        SplittingProbSlider.Value = _config.SplittingProbability;
         SplittingProbTextBox.Text = _config.SplittingProbability.ToString();
+        ReproductionProbSlider.Value = _config.ReproductionProbability;
         ReproductionProbTextBox.Text = _config.ReproductionProbability.ToString();
+        PhasingProbSlider.Value = _config.PhasingProbability;
         PhasingProbTextBox.Text = _config.PhasingProbability.ToString();
+        ChaseProbSlider.Value = _config.ChaseProbability;
         ChaseProbTextBox.Text = _config.ChaseProbability.ToString();
+        FleeProbSlider.Value = _config.FleeProbability;
         FleeProbTextBox.Text = _config.FleeProbability.ToString();
 
         // Type Distribution
+        PredatorProbSlider.Value = _config.PredatorProbability;
         PredatorProbTextBox.Text = _config.PredatorProbability.ToString();
+        HerbivoreProbSlider.Value = _config.HerbivoreProbability;
         HerbivoreProbTextBox.Text = _config.HerbivoreProbability.ToString();
+        SocialProbSlider.Value = _config.SocialProbability;
         SocialProbTextBox.Text = _config.SocialProbability.ToString();
+        SolitaryProbSlider.Value = _config.SolitaryProbability;
         SolitaryProbTextBox.Text = _config.SolitaryProbability.ToString();
+        NeutralProbSlider.Value = _config.NeutralProbability;
         NeutralProbTextBox.Text = _config.NeutralProbability.ToString();
+    }
+
+    private void PresetComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (PresetComboBox.SelectedItem == null) return;
+
+        var selectedPreset = PresetComboBox.SelectedItem.ToString();
+        if (selectedPreset == null) return;
+
+        // Load the selected preset
+        _config = ConfigurationPresets.GetPreset(selectedPreset);
+
+        // Update UI to reflect loaded preset
+        PopulateUIFromConfig();
+
+        // Show message to user
+        InfoTextBlock.Text = $"Loaded preset: {selectedPreset}\nClick Reset to apply.";
+    }
+
+    private void Slider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (sender is not System.Windows.Controls.Slider slider) return;
+
+        // Sync slider value with corresponding TextBox
+        var sliderName = slider.Name;
+        if (string.IsNullOrEmpty(sliderName)) return;
+
+        // Get corresponding TextBox name by replacing "Slider" with "TextBox"
+        var textBoxName = sliderName.Replace("Slider", "TextBox");
+
+        // Find the TextBox
+        var textBox = FindName(textBoxName) as System.Windows.Controls.TextBox;
+        if (textBox != null)
+        {
+            // Format the value appropriately
+            string format = slider.Name switch
+            {
+                // Integer values
+                "ParticleCountSlider" => "F0",
+                "MaxParticlesSlider" => "F0",
+                "MinRadiusSlider" => "F0",
+                "MaxRadiusSlider" => "F0",
+                "MaxVelocitySlider" => "F0",
+                "GravitySlider" => "F1",
+                "ChaseForceSlider" => "F0",
+                "FleeForceSlider" => "F0",
+                "BaseEnergySlider" => "F0",
+                "SplittingCooldownSlider" => "F0",
+                "ReproductionCooldownSlider" => "F0",
+                "PhasingCooldownSlider" => "F0",
+                // High precision decimals
+                "DampingSlider" => "F3",
+                // Standard decimals
+                _ => "F2"
+            };
+
+            textBox.Text = slider.Value.ToString(format);
+        }
     }
 }

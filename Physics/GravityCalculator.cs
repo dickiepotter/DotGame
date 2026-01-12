@@ -43,9 +43,24 @@ public class GravityCalculator
 
         Vector2 force = direction * forceMagnitude;
 
+        // Calculate accelerations
+        Vector2 accelA = force * (float)a.InverseMass;
+        Vector2 accelB = -force * (float)b.InverseMass;
+
+        // Clamp gravity acceleration per frame to prevent it from dominating other forces
+        const float maxGravityAccel = 200.0f;
+        if (accelA.Length() > maxGravityAccel)
+        {
+            accelA = Vector2.Normalize(accelA) * maxGravityAccel;
+        }
+        if (accelB.Length() > maxGravityAccel)
+        {
+            accelB = Vector2.Normalize(accelB) * maxGravityAccel;
+        }
+
         // Apply acceleration (F = ma -> a = F/m)
         // Using semi-implicit Euler: update velocity based on force
-        a.Velocity += force * (float)a.InverseMass * (float)deltaTime;
-        b.Velocity -= force * (float)b.InverseMass * (float)deltaTime;
+        a.Velocity += accelA * (float)deltaTime;
+        b.Velocity += accelB * (float)deltaTime;
     }
 }

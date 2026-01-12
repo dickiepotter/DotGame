@@ -21,6 +21,7 @@ public class AbilityManager
         RegisterAbility(new SplittingAbility(config));
         RegisterAbility(new ReproductionAbility(config));
         RegisterAbility(new PhasingAbility(config));
+        RegisterAbility(new SpeedBurstAbility(config));
     }
 
     public void UpdateAbilities(List<Particle> particles, AbilityContext context)
@@ -78,8 +79,11 @@ public class AbilityManager
         {
             if (!particle.HasAbilities) continue;
 
-            // Passive energy drain (cost of living)
-            particle.Abilities.Energy -= _config.PassiveEnergyDrain * deltaTime;
+            // Larger particles drain more energy (surface area ~ mass^(2/3))
+            // This creates natural size balance - bigger isn't always better
+            double drainMultiplier = Math.Pow(particle.Mass, 0.66);
+            double drain = _config.PassiveEnergyDrain * drainMultiplier * deltaTime;
+            particle.Abilities.Energy -= drain;
 
             // Ensure energy doesn't go negative
             if (particle.Abilities.Energy < 0)
@@ -157,10 +161,11 @@ public class AbilityManager
     {
         if (!particle.HasAbilities) return;
 
-        // Vision range based on size and energy
+        // Vision range based on size, energy, and type synergy
         double baseVision = particle.Radius * _config.VisionRangeMultiplier;
         double energyMultiplier = particle.EnergyPercentage * 0.5 + 0.5; // 0.5 to 1.0
-        particle.Abilities.VisionRange = baseVision * energyMultiplier;
+        double typeMult = particle.Abilities.GetVisionMult(); // Type-based bonus
+        particle.Abilities.VisionRange = baseVision * energyMultiplier * typeMult;
     }
 
     private AbilityType? MakeAbilityDecision(Particle particle, AbilityContext context)

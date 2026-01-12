@@ -77,10 +77,92 @@ public class SimulationConfig
     public double ReproductionEnergyTransfer { get; set; } = 0.5; // 50% of parent energy (scaled)
 
     // Phasing parameters
-    public double PhasingEnergyCost { get; set; } = 30.0; // 30% of max energy
+    public double PhasingEnergyCost { get; set; } = 30.0; // Legacy fixed cost (deprecated)
+    public double PhasingEnergyCostPercent { get; set; } = 0.4; // 40% of max energy
     public double PhasingCooldown { get; set; } = 10.0; // Seconds
     public double PhasingDuration { get; set; } = 2.0; // Seconds of phasing
 
+    // Splitting percentage-based costs
+    public double SplittingEnergyCostPercent { get; set; } = 0.6; // 60% of max energy
+
+    // Reproduction percentage-based costs
+    public double ReproductionEnergyCostPercent { get; set; } = 0.5; // 50% of max energy
+
     // Max particles limit (prevent infinite splitting)
     public int MaxParticles { get; set; } = 1000;
+
+    // Validation and normalization methods
+    public void NormalizeTypeProbabilities()
+    {
+        double sum = PredatorProbability + HerbivoreProbability +
+                     SocialProbability + SolitaryProbability + NeutralProbability;
+        if (sum > 0)
+        {
+            PredatorProbability /= sum;
+            HerbivoreProbability /= sum;
+            SocialProbability /= sum;
+            SolitaryProbability /= sum;
+            NeutralProbability /= sum;
+        }
+    }
+
+    public void ValidateAndClamp()
+    {
+        // Basic configuration
+        ParticleCount = Math.Clamp(ParticleCount, 1, MaxParticles);
+        RandomSeed = Math.Max(0, RandomSeed);
+        SimulationWidth = Math.Clamp(SimulationWidth, 100, 10000);
+        SimulationHeight = Math.Clamp(SimulationHeight, 100, 10000);
+        MaxParticles = Math.Clamp(MaxParticles, 1, 10000);
+
+        // Physics parameters
+        GravitationalConstant = Math.Clamp(GravitationalConstant, 0, 2000);
+        DampingFactor = Math.Clamp(DampingFactor, 0, 1);
+        RestitutionCoefficient = Math.Clamp(RestitutionCoefficient, 0, 1);
+
+        // Particle ranges
+        MinMass = Math.Clamp(MinMass, 0.1, 100);
+        MaxMass = Math.Clamp(MaxMass, MinMass, 100);
+        MinRadius = Math.Clamp(MinRadius, 1, 100);
+        MaxRadius = Math.Clamp(MaxRadius, MinRadius, 100);
+        MaxInitialVelocity = Math.Clamp(MaxInitialVelocity, 0, 500);
+
+        // Energy parameters
+        BaseEnergyCapacity = Math.Clamp(BaseEnergyCapacity, 10, 1000);
+        PassiveEnergyDrain = Math.Clamp(PassiveEnergyDrain, 0, 10);
+        EatingEnergyGain = Math.Clamp(EatingEnergyGain, 0, 1);
+        SizeRatioForEating = Math.Clamp(SizeRatioForEating, 1.0, 5.0);
+        VisionRangeMultiplier = Math.Clamp(VisionRangeMultiplier, 1.0, 20.0);
+        HungerThreshold = Math.Clamp(HungerThreshold, 0, 1);
+
+        // Ability probabilities (0-1 range, but don't need to sum to 1)
+        EatingProbability = Math.Clamp(EatingProbability, 0, 1);
+        SplittingProbability = Math.Clamp(SplittingProbability, 0, 1);
+        ReproductionProbability = Math.Clamp(ReproductionProbability, 0, 1);
+        PhasingProbability = Math.Clamp(PhasingProbability, 0, 1);
+        ChaseProbability = Math.Clamp(ChaseProbability, 0, 1);
+        FleeProbability = Math.Clamp(FleeProbability, 0, 1);
+
+        // Chase/Flee parameters
+        ChaseForce = Math.Clamp(ChaseForce, 0, 1000);
+        FleeForce = Math.Clamp(FleeForce, 0, 1000);
+        ChaseEnergyCost = Math.Clamp(ChaseEnergyCost, 0, 10);
+        FleeEnergyCost = Math.Clamp(FleeEnergyCost, 0, 10);
+
+        // Splitting parameters
+        SplittingEnergyCost = Math.Clamp(SplittingEnergyCost, 0, 100);
+        SplittingCooldown = Math.Clamp(SplittingCooldown, 0, 60);
+        SplittingSeparationForce = Math.Clamp(SplittingSeparationForce, 0, 500);
+
+        // Reproduction parameters
+        ReproductionEnergyCost = Math.Clamp(ReproductionEnergyCost, 0, 100);
+        ReproductionCooldown = Math.Clamp(ReproductionCooldown, 0, 60);
+        ReproductionMassTransfer = Math.Clamp(ReproductionMassTransfer, 0, 1);
+        ReproductionEnergyTransfer = Math.Clamp(ReproductionEnergyTransfer, 0, 1);
+
+        // Phasing parameters
+        PhasingEnergyCost = Math.Clamp(PhasingEnergyCost, 0, 100);
+        PhasingCooldown = Math.Clamp(PhasingCooldown, 0, 60);
+        PhasingDuration = Math.Clamp(PhasingDuration, 0, 10);
+    }
 }

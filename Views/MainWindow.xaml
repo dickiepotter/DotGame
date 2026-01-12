@@ -2,13 +2,13 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="DotGame - 2D Physics Particle Simulator"
-        Height="700" Width="1100"
+        Height="700" Width="1200"
         WindowStartupLocation="CenterScreen"
         Loaded="Window_Loaded">
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="250"/>
+            <ColumnDefinition Width="300"/>
         </Grid.ColumnDefinitions>
 
         <!-- Simulation Canvas -->
@@ -41,269 +41,586 @@
             </Grid>
         </Border>
 
-        <!-- Control Panel -->
+        <!-- Control Panel with Tabs -->
         <Border Grid.Column="1" BorderBrush="Gray" BorderThickness="1" Margin="10" Padding="10">
-            <ScrollViewer VerticalScrollBarVisibility="Auto">
-                <StackPanel>
-                    <TextBlock Text="Particle Physics Simulator"
-                              FontSize="16"
-                              FontWeight="Bold"
-                              Margin="0,0,0,20"/>
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
 
-                    <!-- Control Buttons -->
-                    <GroupBox Header="Controls" Margin="0,0,0,10">
-                        <StackPanel>
-                            <Button x:Name="StartButton"
-                                   Content="Start"
-                                   Click="StartButton_Click"
-                                   Margin="0,5"
-                                   Padding="5"/>
-                            <Button x:Name="StopButton"
-                                   Content="Stop"
-                                   Click="StopButton_Click"
-                                   Margin="0,5"
-                                   Padding="5"/>
-                            <Button x:Name="ResetButton"
-                                   Content="Reset"
-                                   Click="ResetButton_Click"
-                                   Margin="0,5"
-                                   Padding="5"/>
-                            <Separator Margin="0,10"/>
-                            <Button x:Name="SaveSettingsButton"
-                                   Content="Save Settings"
-                                   Click="SaveSettingsButton_Click"
-                                   Margin="0,5"
-                                   Padding="5"/>
-                            <Button x:Name="LoadSettingsButton"
-                                   Content="Load Settings"
-                                   Click="LoadSettingsButton_Click"
-                                   Margin="0,5"
-                                   Padding="5"/>
-                        </StackPanel>
-                    </GroupBox>
+                <TextBlock Grid.Row="0" Text="Particle Physics Simulator"
+                          FontSize="16"
+                          FontWeight="Bold"
+                          Margin="0,0,0,10"/>
 
-                    <!-- Basic Configuration -->
-                    <GroupBox Header="Basic Configuration" Margin="0,0,0,10">
-                        <StackPanel>
-                            <TextBlock Text="Particle Count:"/>
-                            <TextBox x:Name="ParticleCountTextBox" Text="50" Margin="0,2,0,10"/>
+                <TabControl Grid.Row="1">
+                    <!-- CONTROLS TAB -->
+                    <TabItem Header="Controls">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <StackPanel Margin="10">
+                                <!-- Control Buttons -->
+                                <GroupBox Header="Simulation" Margin="0,0,0,10">
+                                    <StackPanel>
+                                        <Button x:Name="StartButton" Content="Start" Click="StartButton_Click" Margin="0,5" Padding="5" Background="LightGreen"/>
+                                        <Button x:Name="StopButton" Content="Stop" Click="StopButton_Click" Margin="0,5" Padding="5" Background="LightCoral"/>
+                                        <Button x:Name="ResetButton" Content="Reset" Click="ResetButton_Click" Margin="0,5" Padding="5"/>
+                                    </StackPanel>
+                                </GroupBox>
 
-                            <TextBlock Text="Random Seed:"/>
-                            <TextBox x:Name="SeedTextBox" Text="12345" Margin="0,2,0,10"/>
+                                <!-- Presets -->
+                                <GroupBox Header="Presets" Margin="0,0,0,10">
+                                    <StackPanel>
+                                        <TextBlock Text="Load Preset:" Margin="0,0,0,5"/>
+                                        <ComboBox x:Name="PresetComboBox" SelectionChanged="PresetComboBox_SelectionChanged" Padding="5"/>
+                                    </StackPanel>
+                                </GroupBox>
 
-                            <TextBlock Text="Simulation Width:"/>
-                            <TextBox x:Name="SimWidthTextBox" Text="800" Margin="0,2,0,10"/>
+                                <!-- Save/Load -->
+                                <GroupBox Header="Settings" Margin="0,0,0,10">
+                                    <StackPanel>
+                                        <Button x:Name="SaveSettingsButton" Content="Save Settings" Click="SaveSettingsButton_Click" Margin="0,5" Padding="5"/>
+                                        <Button x:Name="LoadSettingsButton" Content="Load Settings" Click="LoadSettingsButton_Click" Margin="0,5" Padding="5"/>
+                                    </StackPanel>
+                                </GroupBox>
 
-                            <TextBlock Text="Simulation Height:"/>
-                            <TextBox x:Name="SimHeightTextBox" Text="600" Margin="0,2,0,10"/>
+                                <!-- Info -->
+                                <GroupBox Header="Status">
+                                    <TextBlock x:Name="InfoTextBlock" Text="Click Start to begin" TextWrapping="Wrap"/>
+                                </GroupBox>
 
-                            <TextBlock Text="Max Particles:"/>
-                            <TextBox x:Name="MaxParticlesTextBox" Text="1000" Margin="0,2,0,10"/>
-                        </StackPanel>
-                    </GroupBox>
+                                <!-- Performance -->
+                                <GroupBox Header="Performance" Margin="0,10,0,0">
+                                    <StackPanel>
+                                        <StackPanel Orientation="Horizontal" Margin="0,2">
+                                            <TextBlock Text="FPS: " FontWeight="Bold"/>
+                                            <TextBlock x:Name="FpsTextBlock" Text="0.0" FontSize="14"/>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" Margin="0,2">
+                                            <TextBlock Text="Particles: " FontWeight="Bold"/>
+                                            <TextBlock x:Name="ParticleCountTextBlock" Text="0" FontSize="14"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </GroupBox>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </TabItem>
 
-                    <!-- Physics Parameters -->
-                    <GroupBox Header="Physics Parameters" Margin="0,0,0,10">
-                        <StackPanel>
-                            <TextBlock Text="Gravitational Constant:"/>
-                            <TextBox x:Name="GravityTextBox" Text="100.0" Margin="0,2,0,10"/>
+                    <!-- BASIC TAB -->
+                    <TabItem Header="Basic">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <StackPanel Margin="10">
+                                <!-- Particle Count -->
+                                <TextBlock Text="Particle Count:" FontWeight="Bold" Margin="0,5,0,2"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="60"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Slider x:Name="ParticleCountSlider" Minimum="1" Maximum="500" Value="50" TickFrequency="10" IsSnapToTickEnabled="True" ValueChanged="Slider_ValueChanged"/>
+                                    <TextBox x:Name="ParticleCountTextBox" Grid.Column="1" Text="50" Margin="5,0,0,0" VerticalContentAlignment="Center"/>
+                                </Grid>
 
-                            <TextBlock Text="Damping Factor:"/>
-                            <TextBox x:Name="DampingTextBox" Text="0.995" Margin="0,2,0,10"/>
+                                <!-- Max Particles -->
+                                <TextBlock Text="Max Particles:" FontWeight="Bold" Margin="0,10,0,2"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="60"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Slider x:Name="MaxParticlesSlider" Minimum="100" Maximum="5000" Value="1000" TickFrequency="100" IsSnapToTickEnabled="True" ValueChanged="Slider_ValueChanged"/>
+                                    <TextBox x:Name="MaxParticlesTextBox" Grid.Column="1" Text="1000" Margin="5,0,0,0" VerticalContentAlignment="Center"/>
+                                </Grid>
 
-                            <TextBlock Text="Restitution (Bounciness):"/>
-                            <TextBox x:Name="RestitutionTextBox" Text="0.8" Margin="0,2,0,10"/>
-                        </StackPanel>
-                    </GroupBox>
+                                <!-- Random Seed -->
+                                <TextBlock Text="Random Seed:" FontWeight="Bold" Margin="0,10,0,2"/>
+                                <TextBox x:Name="SeedTextBox" Text="12345" Height="25"/>
 
-                    <!-- Particle Ranges -->
-                    <GroupBox Header="Particle Ranges" Margin="0,0,0,10">
-                        <StackPanel>
-                            <TextBlock Text="Min Mass:"/>
-                            <TextBox x:Name="MinMassTextBox" Text="1.0" Margin="0,2,0,10"/>
+                                <!-- Simulation Size (read-only info) -->
+                                <TextBlock Text="Simulation Size:" FontWeight="Bold" Margin="0,10,0,2"/>
+                                <TextBlock Text="(Auto-sized to canvas)" FontStyle="Italic" FontSize="10" Margin="0,0,0,2"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="W:" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                                    <TextBox x:Name="SimWidthTextBox" Grid.Column="1" Text="800" IsReadOnly="True" Background="LightGray" VerticalContentAlignment="Center"/>
+                                    <TextBlock Grid.Column="2" Text="H:" Margin="10,0,5,0" VerticalAlignment="Center"/>
+                                    <TextBox x:Name="SimHeightTextBox" Grid.Column="3" Text="600" IsReadOnly="True" Background="LightGray" VerticalContentAlignment="Center"/>
+                                </Grid>
 
-                            <TextBlock Text="Max Mass:"/>
-                            <TextBox x:Name="MaxMassTextBox" Text="10.0" Margin="0,2,0,10"/>
+                                <!-- Mouse Controls Info -->
+                                <GroupBox Header="Mouse Controls" Margin="0,15,0,0">
+                                    <StackPanel>
+                                        <TextBlock Text="• Left Click: Add particle" Margin="0,2"/>
+                                        <TextBlock Text="• Right Click+Drag: Push particle" Margin="0,2"/>
+                                        <TextBlock Text="• Hover: View particle details" Margin="0,2"/>
+                                    </StackPanel>
+                                </GroupBox>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </TabItem>
 
-                            <TextBlock Text="Min Radius:"/>
-                            <TextBox x:Name="MinRadiusTextBox" Text="5.0" Margin="0,2,0,10"/>
+                    <!-- PHYSICS TAB -->
+                    <TabItem Header="Physics">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <StackPanel Margin="10">
+                                <!-- Gravity -->
+                                <TextBlock Text="Gravitational Constant:" FontWeight="Bold" Margin="0,5,0,2"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="60"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Slider x:Name="GravitySlider" Minimum="0" Maximum="500" Value="100" TickFrequency="10" ValueChanged="Slider_ValueChanged"/>
+                                    <TextBox x:Name="GravityTextBox" Grid.Column="1" Text="100.0" Margin="5,0,0,0" VerticalContentAlignment="Center"/>
+                                </Grid>
 
-                            <TextBlock Text="Max Radius:"/>
-                            <TextBox x:Name="MaxRadiusTextBox" Text="20.0" Margin="0,2,0,10"/>
+                                <!-- Damping -->
+                                <TextBlock Text="Damping Factor:" FontWeight="Bold" Margin="0,10,0,2"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="60"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Slider x:Name="DampingSlider" Minimum="0.9" Maximum="1.0" Value="0.995" TickFrequency="0.001" ValueChanged="Slider_ValueChanged"/>
+                                    <TextBox x:Name="DampingTextBox" Grid.Column="1" Text="0.995" Margin="5,0,0,0" VerticalContentAlignment="Center"/>
+                                </Grid>
 
-                            <TextBlock Text="Max Initial Velocity:"/>
-                            <TextBox x:Name="MaxVelocityTextBox" Text="50.0" Margin="0,2,0,10"/>
-                        </StackPanel>
-                    </GroupBox>
+                                <!-- Restitution -->
+                                <TextBlock Text="Restitution (Bounciness):" FontWeight="Bold" Margin="0,10,0,2"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="60"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Slider x:Name="RestitutionSlider" Minimum="0" Maximum="1" Value="0.8" TickFrequency="0.05" ValueChanged="Slider_ValueChanged"/>
+                                    <TextBox x:Name="RestitutionTextBox" Grid.Column="1" Text="0.8" Margin="5,0,0,0" VerticalContentAlignment="Center"/>
+                                </Grid>
 
-                    <!-- Physics Toggles -->
-                    <GroupBox Header="Physics Toggles" Margin="0,0,0,10">
-                        <StackPanel>
-                            <CheckBox x:Name="UseGravityCheckBox" Content="Gravity" IsChecked="True" Margin="0,3"/>
-                            <CheckBox x:Name="UseCollisionsCheckBox" Content="Collisions" IsChecked="True" Margin="0,3"/>
-                            <CheckBox x:Name="UseBoundariesCheckBox" Content="Boundaries" IsChecked="True" Margin="0,3"/>
-                            <CheckBox x:Name="UseDampingCheckBox" Content="Damping" IsChecked="True" Margin="0,3"/>
-                            <CheckBox x:Name="UseSpatialPartitioningCheckBox" Content="Spatial Partitioning" IsChecked="True" Margin="0,3"/>
-                        </StackPanel>
-                    </GroupBox>
+                                <Separator Margin="0,15"/>
 
-                    <!-- Ability Toggles -->
-                    <GroupBox Header="Ability System" Margin="0,0,0,10">
-                        <StackPanel>
-                            <CheckBox x:Name="UseAbilitiesCheckBox" Content="Enable Abilities" IsChecked="True" Margin="0,3" FontWeight="Bold"/>
-                            <CheckBox x:Name="UseEatingCheckBox" Content="Eating" IsChecked="True" Margin="0,3"/>
-                            <CheckBox x:Name="UseSplittingCheckBox" Content="Splitting" IsChecked="True" Margin="0,3"/>
-                            <CheckBox x:Name="UseReproductionCheckBox" Content="Reproduction" IsChecked="True" Margin="0,3"/>
-                            <CheckBox x:Name="UsePhasingCheckBox" Content="Phasing" IsChecked="True" Margin="0,3"/>
-                            <CheckBox x:Name="UseChaseCheckBox" Content="Chase" IsChecked="True" Margin="0,3"/>
-                            <CheckBox x:Name="UseFleeCheckBox" Content="Flee" IsChecked="True" Margin="0,3"/>
-                        </StackPanel>
-                    </GroupBox>
+                                <!-- Mass Range -->
+                                <TextBlock Text="Mass Range:" FontWeight="Bold" Margin="0,10,0,2"/>
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition/>
+                                        <RowDefinition/>
+                                    </Grid.RowDefinitions>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="60"/>
+                                    </Grid.ColumnDefinitions>
 
-                    <!-- Energy Parameters -->
-                    <GroupBox Header="Energy Parameters" Margin="0,0,0,10">
-                        <StackPanel>
-                            <TextBlock Text="Base Energy Capacity:"/>
-                            <TextBox x:Name="BaseEnergyTextBox" Text="100.0" Margin="0,2,0,10"/>
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Min:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                    <Slider x:Name="MinMassSlider" Grid.Row="0" Grid.Column="1" Minimum="0.1" Maximum="20" Value="1" TickFrequency="0.1" ValueChanged="Slider_ValueChanged"/>
+                                    <TextBox x:Name="MinMassTextBox" Grid.Row="0" Grid.Column="2" Text="1.0" Margin="5,0,0,5" VerticalContentAlignment="Center"/>
 
-                            <TextBlock Text="Passive Energy Drain:"/>
-                            <TextBox x:Name="PassiveDrainTextBox" Text="0.5" Margin="0,2,0,10"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Max:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                    <Slider x:Name="MaxMassSlider" Grid.Row="1" Grid.Column="1" Minimum="1" Maximum="50" Value="10" TickFrequency="1" ValueChanged="Slider_ValueChanged"/>
+                                    <TextBox x:Name="MaxMassTextBox" Grid.Row="1" Grid.Column="2" Text="10.0" Margin="5,5,0,0" VerticalContentAlignment="Center"/>
+                                </Grid>
 
-                            <TextBlock Text="Eating Energy Gain:"/>
-                            <TextBox x:Name="EatingGainTextBox" Text="0.8" Margin="0,2,0,10"/>
+                                <!-- Radius Range -->
+                                <TextBlock Text="Radius Range:" FontWeight="Bold" Margin="0,10,0,2"/>
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition/>
+                                        <RowDefinition/>
+                                    </Grid.RowDefinitions>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="60"/>
+                                    </Grid.ColumnDefinitions>
 
-                            <TextBlock Text="Size Ratio for Eating:"/>
-                            <TextBox x:Name="SizeRatioTextBox" Text="1.5" Margin="0,2,0,10"/>
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Min:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                    <Slider x:Name="MinRadiusSlider" Grid.Row="0" Grid.Column="1" Minimum="2" Maximum="30" Value="5" TickFrequency="1" IsSnapToTickEnabled="True" ValueChanged="Slider_ValueChanged"/>
+                                    <TextBox x:Name="MinRadiusTextBox" Grid.Row="0" Grid.Column="2" Text="5.0" Margin="5,0,0,5" VerticalContentAlignment="Center"/>
 
-                            <TextBlock Text="Vision Range Multiplier:"/>
-                            <TextBox x:Name="VisionRangeTextBox" Text="5.0" Margin="0,2,0,10"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Max:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                    <Slider x:Name="MaxRadiusSlider" Grid.Row="1" Grid.Column="1" Minimum="5" Maximum="50" Value="20" TickFrequency="1" IsSnapToTickEnabled="True" ValueChanged="Slider_ValueChanged"/>
+                                    <TextBox x:Name="MaxRadiusTextBox" Grid.Row="1" Grid.Column="2" Text="20.0" Margin="5,5,0,0" VerticalContentAlignment="Center"/>
+                                </Grid>
 
-                            <TextBlock Text="Hunger Threshold:"/>
-                            <TextBox x:Name="HungerThresholdTextBox" Text="0.3" Margin="0,2,0,10"/>
-                        </StackPanel>
-                    </GroupBox>
+                                <!-- Max Velocity -->
+                                <TextBlock Text="Max Initial Velocity:" FontWeight="Bold" Margin="0,10,0,2"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="60"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Slider x:Name="MaxVelocitySlider" Minimum="0" Maximum="200" Value="50" TickFrequency="10" ValueChanged="Slider_ValueChanged"/>
+                                    <TextBox x:Name="MaxVelocityTextBox" Grid.Column="1" Text="50.0" Margin="5,0,0,0" VerticalContentAlignment="Center"/>
+                                </Grid>
 
-                    <!-- Chase/Flee Parameters -->
-                    <GroupBox Header="Chase/Flee Parameters" Margin="0,0,0,10">
-                        <StackPanel>
-                            <TextBlock Text="Chase Force:"/>
-                            <TextBox x:Name="ChaseForceTextBox" Text="200.0" Margin="0,2,0,10"/>
+                                <Separator Margin="0,15"/>
 
-                            <TextBlock Text="Flee Force:"/>
-                            <TextBox x:Name="FleeForceTextBox" Text="250.0" Margin="0,2,0,10"/>
+                                <!-- Physics Toggles -->
+                                <TextBlock Text="Enable/Disable:" FontWeight="Bold" Margin="0,10,0,5"/>
+                                <CheckBox x:Name="UseGravityCheckBox" Content="Gravity" IsChecked="True" Margin="0,3"/>
+                                <CheckBox x:Name="UseCollisionsCheckBox" Content="Collisions" IsChecked="True" Margin="0,3"/>
+                                <CheckBox x:Name="UseBoundariesCheckBox" Content="Boundaries" IsChecked="True" Margin="0,3"/>
+                                <CheckBox x:Name="UseDampingCheckBox" Content="Damping" IsChecked="True" Margin="0,3"/>
+                                <CheckBox x:Name="UseSpatialPartitioningCheckBox" Content="Spatial Partitioning" IsChecked="True" Margin="0,3"/>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </TabItem>
 
-                            <TextBlock Text="Chase Energy Cost:"/>
-                            <TextBox x:Name="ChaseEnergyCostTextBox" Text="0.1" Margin="0,2,0,10"/>
+                    <!-- ABILITIES TAB -->
+                    <TabItem Header="Abilities">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <StackPanel Margin="10">
+                                <!-- Enable Abilities -->
+                                <CheckBox x:Name="UseAbilitiesCheckBox" Content="Enable Ability System" IsChecked="True" FontWeight="Bold" FontSize="14" Margin="0,5,0,15"/>
 
-                            <TextBlock Text="Flee Energy Cost:"/>
-                            <TextBox x:Name="FleeEnergyCostTextBox" Text="0.15" Margin="0,2,0,10"/>
-                        </StackPanel>
-                    </GroupBox>
+                                <!-- Ability Toggles -->
+                                <TextBlock Text="Available Abilities:" FontWeight="Bold" Margin="0,5,0,5"/>
+                                <CheckBox x:Name="UseEatingCheckBox" Content="Eating" IsChecked="True" Margin="10,3,0,3"/>
+                                <CheckBox x:Name="UseSplittingCheckBox" Content="Splitting" IsChecked="True" Margin="10,3,0,3"/>
+                                <CheckBox x:Name="UseReproductionCheckBox" Content="Reproduction" IsChecked="True" Margin="10,3,0,3"/>
+                                <CheckBox x:Name="UsePhasingCheckBox" Content="Phasing" IsChecked="True" Margin="10,3,0,3"/>
+                                <CheckBox x:Name="UseChaseCheckBox" Content="Chase" IsChecked="True" Margin="10,3,0,3"/>
+                                <CheckBox x:Name="UseFleeCheckBox" Content="Flee" IsChecked="True" Margin="10,3,0,3"/>
 
-                    <!-- Splitting Parameters -->
-                    <GroupBox Header="Splitting Parameters" Margin="0,0,0,10">
-                        <StackPanel>
-                            <TextBlock Text="Splitting Energy Cost:"/>
-                            <TextBox x:Name="SplittingEnergyCostTextBox" Text="50.0" Margin="0,2,0,10"/>
+                                <Separator Margin="0,15"/>
 
-                            <TextBlock Text="Splitting Cooldown:"/>
-                            <TextBox x:Name="SplittingCooldownTextBox" Text="5.0" Margin="0,2,0,10"/>
+                                <!-- Ability Probabilities -->
+                                <TextBlock Text="Ability Assignment Probabilities:" FontWeight="Bold" Margin="0,10,0,5"/>
+                                <TextBlock Text="(Chance each particle gets each ability)" FontStyle="Italic" FontSize="10" Margin="0,0,0,5"/>
 
-                            <TextBlock Text="Splitting Separation Force:"/>
-                            <TextBox x:Name="SplittingSeparationTextBox" Text="100.0" Margin="0,2,0,10"/>
-                        </StackPanel>
-                    </GroupBox>
+                                <!-- Eating Probability -->
+                                <TextBlock Text="Eating:" Margin="0,5,0,2"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="60"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Slider x:Name="EatingProbSlider" Minimum="0" Maximum="1" Value="0.7" TickFrequency="0.05" ValueChanged="Slider_ValueChanged"/>
+                                    <TextBox x:Name="EatingProbTextBox" Grid.Column="1" Text="0.7" Margin="5,0,0,0" VerticalContentAlignment="Center"/>
+                                </Grid>
 
-                    <!-- Reproduction Parameters -->
-                    <GroupBox Header="Reproduction Parameters" Margin="0,0,0,10">
-                        <StackPanel>
-                            <TextBlock Text="Reproduction Energy Cost:"/>
-                            <TextBox x:Name="ReproductionEnergyCostTextBox" Text="40.0" Margin="0,2,0,10"/>
+                                <!-- Splitting Probability -->
+                                <TextBlock Text="Splitting:" Margin="0,8,0,2"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="60"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Slider x:Name="SplittingProbSlider" Minimum="0" Maximum="1" Value="0.3" TickFrequency="0.05" ValueChanged="Slider_ValueChanged"/>
+                                    <TextBox x:Name="SplittingProbTextBox" Grid.Column="1" Text="0.3" Margin="5,0,0,0" VerticalContentAlignment="Center"/>
+                                </Grid>
 
-                            <TextBlock Text="Reproduction Cooldown:"/>
-                            <TextBox x:Name="ReproductionCooldownTextBox" Text="8.0" Margin="0,2,0,10"/>
+                                <!-- Reproduction Probability -->
+                                <TextBlock Text="Reproduction:" Margin="0,8,0,2"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="60"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Slider x:Name="ReproductionProbSlider" Minimum="0" Maximum="1" Value="0.4" TickFrequency="0.05" ValueChanged="Slider_ValueChanged"/>
+                                    <TextBox x:Name="ReproductionProbTextBox" Grid.Column="1" Text="0.4" Margin="5,0,0,0" VerticalContentAlignment="Center"/>
+                                </Grid>
 
-                            <TextBlock Text="Reproduction Mass Transfer:"/>
-                            <TextBox x:Name="ReproductionMassTransferTextBox" Text="0.3" Margin="0,2,0,10"/>
+                                <!-- Phasing Probability -->
+                                <TextBlock Text="Phasing:" Margin="0,8,0,2"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="60"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Slider x:Name="PhasingProbSlider" Minimum="0" Maximum="1" Value="0.2" TickFrequency="0.05" ValueChanged="Slider_ValueChanged"/>
+                                    <TextBox x:Name="PhasingProbTextBox" Grid.Column="1" Text="0.2" Margin="5,0,0,0" VerticalContentAlignment="Center"/>
+                                </Grid>
 
-                            <TextBlock Text="Reproduction Energy Transfer:"/>
-                            <TextBox x:Name="ReproductionEnergyTransferTextBox" Text="0.5" Margin="0,2,0,10"/>
-                        </StackPanel>
-                    </GroupBox>
+                                <!-- Chase Probability -->
+                                <TextBlock Text="Chase:" Margin="0,8,0,2"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="60"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Slider x:Name="ChaseProbSlider" Minimum="0" Maximum="1" Value="0.6" TickFrequency="0.05" ValueChanged="Slider_ValueChanged"/>
+                                    <TextBox x:Name="ChaseProbTextBox" Grid.Column="1" Text="0.6" Margin="5,0,0,0" VerticalContentAlignment="Center"/>
+                                </Grid>
 
-                    <!-- Phasing Parameters -->
-                    <GroupBox Header="Phasing Parameters" Margin="0,0,0,10">
-                        <StackPanel>
-                            <TextBlock Text="Phasing Energy Cost:"/>
-                            <TextBox x:Name="PhasingEnergyCostTextBox" Text="30.0" Margin="0,2,0,10"/>
+                                <!-- Flee Probability -->
+                                <TextBlock Text="Flee:" Margin="0,8,0,2"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="60"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Slider x:Name="FleeProbSlider" Minimum="0" Maximum="1" Value="0.5" TickFrequency="0.05" ValueChanged="Slider_ValueChanged"/>
+                                    <TextBox x:Name="FleeProbTextBox" Grid.Column="1" Text="0.5" Margin="5,0,0,0" VerticalContentAlignment="Center"/>
+                                </Grid>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </TabItem>
 
-                            <TextBlock Text="Phasing Cooldown:"/>
-                            <TextBox x:Name="PhasingCooldownTextBox" Text="10.0" Margin="0,2,0,10"/>
+                    <!-- ENERGY TAB -->
+                    <TabItem Header="Energy">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <StackPanel Margin="10">
+                                <!-- Base Energy -->
+                                <TextBlock Text="Base Energy Capacity:" FontWeight="Bold" Margin="0,5,0,2"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="60"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Slider x:Name="BaseEnergySlider" Minimum="10" Maximum="500" Value="100" TickFrequency="10" ValueChanged="Slider_ValueChanged"/>
+                                    <TextBox x:Name="BaseEnergyTextBox" Grid.Column="1" Text="100.0" Margin="5,0,0,0" VerticalContentAlignment="Center"/>
+                                </Grid>
 
-                            <TextBlock Text="Phasing Duration:"/>
-                            <TextBox x:Name="PhasingDurationTextBox" Text="2.0" Margin="0,2,0,10"/>
-                        </StackPanel>
-                    </GroupBox>
+                                <!-- Passive Drain -->
+                                <TextBlock Text="Passive Energy Drain (per second):" FontWeight="Bold" Margin="0,10,0,2"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="60"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Slider x:Name="PassiveDrainSlider" Minimum="0" Maximum="5" Value="0.5" TickFrequency="0.1" ValueChanged="Slider_ValueChanged"/>
+                                    <TextBox x:Name="PassiveDrainTextBox" Grid.Column="1" Text="0.5" Margin="5,0,0,0" VerticalContentAlignment="Center"/>
+                                </Grid>
 
-                    <!-- Ability Probabilities -->
-                    <GroupBox Header="Ability Probabilities" Margin="0,0,0,10">
-                        <StackPanel>
-                            <TextBlock Text="Eating Probability:"/>
-                            <TextBox x:Name="EatingProbTextBox" Text="0.7" Margin="0,2,0,10"/>
+                                <!-- Eating Gain -->
+                                <TextBlock Text="Eating Energy Gain (%):" FontWeight="Bold" Margin="0,10,0,2"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="60"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Slider x:Name="EatingGainSlider" Minimum="0" Maximum="1" Value="0.8" TickFrequency="0.05" ValueChanged="Slider_ValueChanged"/>
+                                    <TextBox x:Name="EatingGainTextBox" Grid.Column="1" Text="0.8" Margin="5,0,0,0" VerticalContentAlignment="Center"/>
+                                </Grid>
 
-                            <TextBlock Text="Splitting Probability:"/>
-                            <TextBox x:Name="SplittingProbTextBox" Text="0.3" Margin="0,2,0,10"/>
+                                <!-- Size Ratio for Eating -->
+                                <TextBlock Text="Size Ratio for Eating:" FontWeight="Bold" Margin="0,10,0,2"/>
+                                <TextBlock Text="(Must be this many times larger to eat)" FontStyle="Italic" FontSize="10" Margin="0,0,0,2"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="60"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Slider x:Name="SizeRatioSlider" Minimum="1" Maximum="3" Value="1.5" TickFrequency="0.1" ValueChanged="Slider_ValueChanged"/>
+                                    <TextBox x:Name="SizeRatioTextBox" Grid.Column="1" Text="1.5" Margin="5,0,0,0" VerticalContentAlignment="Center"/>
+                                </Grid>
 
-                            <TextBlock Text="Reproduction Probability:"/>
-                            <TextBox x:Name="ReproductionProbTextBox" Text="0.4" Margin="0,2,0,10"/>
+                                <!-- Vision Range -->
+                                <TextBlock Text="Vision Range Multiplier:" FontWeight="Bold" Margin="0,10,0,2"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="60"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Slider x:Name="VisionRangeSlider" Minimum="1" Maximum="20" Value="5" TickFrequency="0.5" ValueChanged="Slider_ValueChanged"/>
+                                    <TextBox x:Name="VisionRangeTextBox" Grid.Column="1" Text="5.0" Margin="5,0,0,0" VerticalContentAlignment="Center"/>
+                                </Grid>
 
-                            <TextBlock Text="Phasing Probability:"/>
-                            <TextBox x:Name="PhasingProbTextBox" Text="0.2" Margin="0,2,0,10"/>
+                                <!-- Hunger Threshold -->
+                                <TextBlock Text="Hunger Threshold:" FontWeight="Bold" Margin="0,10,0,2"/>
+                                <TextBlock Text="(Start hunting below this energy %)" FontStyle="Italic" FontSize="10" Margin="0,0,0,2"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="60"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Slider x:Name="HungerThresholdSlider" Minimum="0" Maximum="1" Value="0.3" TickFrequency="0.05" ValueChanged="Slider_ValueChanged"/>
+                                    <TextBox x:Name="HungerThresholdTextBox" Grid.Column="1" Text="0.3" Margin="5,0,0,0" VerticalContentAlignment="Center"/>
+                                </Grid>
 
-                            <TextBlock Text="Chase Probability:"/>
-                            <TextBox x:Name="ChaseProbTextBox" Text="0.6" Margin="0,2,0,10"/>
+                                <Separator Margin="0,15"/>
 
-                            <TextBlock Text="Flee Probability:"/>
-                            <TextBox x:Name="FleeProbTextBox" Text="0.5" Margin="0,2,0,10"/>
-                        </StackPanel>
-                    </GroupBox>
+                                <!-- Chase/Flee Parameters -->
+                                <TextBlock Text="Chase/Flee Settings:" FontWeight="Bold" FontSize="14" Margin="0,10,0,10"/>
 
-                    <!-- Type Distribution -->
-                    <GroupBox Header="Type Distribution" Margin="0,0,0,10">
-                        <StackPanel>
-                            <TextBlock Text="Predator Probability:"/>
-                            <TextBox x:Name="PredatorProbTextBox" Text="0.3" Margin="0,2,0,10"/>
+                                <!-- Chase Force -->
+                                <TextBlock Text="Chase Force:" Margin="0,5,0,2"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="60"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Slider x:Name="ChaseForceSlider" Minimum="0" Maximum="500" Value="200" TickFrequency="10" ValueChanged="Slider_ValueChanged"/>
+                                    <TextBox x:Name="ChaseForceTextBox" Grid.Column="1" Text="200.0" Margin="5,0,0,0" VerticalContentAlignment="Center"/>
+                                </Grid>
 
-                            <TextBlock Text="Herbivore Probability:"/>
-                            <TextBox x:Name="HerbivoreProbTextBox" Text="0.3" Margin="0,2,0,10"/>
+                                <!-- Flee Force -->
+                                <TextBlock Text="Flee Force:" Margin="0,8,0,2"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="60"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Slider x:Name="FleeForceSlider" Minimum="0" Maximum="500" Value="250" TickFrequency="10" ValueChanged="Slider_ValueChanged"/>
+                                    <TextBox x:Name="FleeForceTextBox" Grid.Column="1" Text="250.0" Margin="5,0,0,0" VerticalContentAlignment="Center"/>
+                                </Grid>
 
-                            <TextBlock Text="Social Probability:"/>
-                            <TextBox x:Name="SocialProbTextBox" Text="0.2" Margin="0,2,0,10"/>
+                                <!-- Chase Energy Cost -->
+                                <TextBlock Text="Chase Energy Cost (per second):" Margin="0,8,0,2"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="60"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Slider x:Name="ChaseEnergyCostSlider" Minimum="0" Maximum="2" Value="0.1" TickFrequency="0.05" ValueChanged="Slider_ValueChanged"/>
+                                    <TextBox x:Name="ChaseEnergyCostTextBox" Grid.Column="1" Text="0.1" Margin="5,0,0,0" VerticalContentAlignment="Center"/>
+                                </Grid>
 
-                            <TextBlock Text="Solitary Probability:"/>
-                            <TextBox x:Name="SolitaryProbTextBox" Text="0.1" Margin="0,2,0,10"/>
+                                <!-- Flee Energy Cost -->
+                                <TextBlock Text="Flee Energy Cost (per second):" Margin="0,8,0,2"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="60"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Slider x:Name="FleeEnergyCostSlider" Minimum="0" Maximum="2" Value="0.15" TickFrequency="0.05" ValueChanged="Slider_ValueChanged"/>
+                                    <TextBox x:Name="FleeEnergyCostTextBox" Grid.Column="1" Text="0.15" Margin="5,0,0,0" VerticalContentAlignment="Center"/>
+                                </Grid>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </TabItem>
 
-                            <TextBlock Text="Neutral Probability:"/>
-                            <TextBox x:Name="NeutralProbTextBox" Text="0.1" Margin="0,2,0,10"/>
-                        </StackPanel>
-                    </GroupBox>
+                    <!-- ADVANCED TAB -->
+                    <TabItem Header="Advanced">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <StackPanel Margin="10">
+                                <!-- Type Distribution -->
+                                <TextBlock Text="Particle Type Distribution:" FontWeight="Bold" FontSize="14" Margin="0,5,0,10"/>
+                                <TextBlock Text="(Auto-normalized to 100%)" FontStyle="Italic" FontSize="10" Margin="0,0,0,5"/>
 
-                    <!-- Mouse Controls -->
-                    <GroupBox Header="Mouse Controls" Margin="0,0,0,10">
-                        <StackPanel>
-                            <TextBlock Text="Left Click: Add particle" Margin="0,2" FontSize="11"/>
-                            <TextBlock Text="Right Click+Drag: Push particle" Margin="0,2" FontSize="11"/>
-                        </StackPanel>
-                    </GroupBox>
+                                <!-- Predator -->
+                                <TextBlock Text="Predator:" Margin="0,5,0,2"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="60"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Slider x:Name="PredatorProbSlider" Minimum="0" Maximum="1" Value="0.3" TickFrequency="0.05" ValueChanged="Slider_ValueChanged"/>
+                                    <TextBox x:Name="PredatorProbTextBox" Grid.Column="1" Text="0.3" Margin="5,0,0,0" VerticalContentAlignment="Center"/>
+                                </Grid>
 
-                    <!-- Info -->
-                    <GroupBox Header="Info">
-                        <StackPanel>
-                            <TextBlock x:Name="InfoTextBlock" Text="Click Start to begin" TextWrapping="Wrap"/>
-                        </StackPanel>
-                    </GroupBox>
-                </StackPanel>
-            </ScrollViewer>
+                                <!-- Herbivore -->
+                                <TextBlock Text="Herbivore:" Margin="0,8,0,2"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="60"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Slider x:Name="HerbivoreProbSlider" Minimum="0" Maximum="1" Value="0.3" TickFrequency="0.05" ValueChanged="Slider_ValueChanged"/>
+                                    <TextBox x:Name="HerbivoreProbTextBox" Grid.Column="1" Text="0.3" Margin="5,0,0,0" VerticalContentAlignment="Center"/>
+                                </Grid>
+
+                                <!-- Social -->
+                                <TextBlock Text="Social:" Margin="0,8,0,2"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="60"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Slider x:Name="SocialProbSlider" Minimum="0" Maximum="1" Value="0.2" TickFrequency="0.05" ValueChanged="Slider_ValueChanged"/>
+                                    <TextBox x:Name="SocialProbTextBox" Grid.Column="1" Text="0.2" Margin="5,0,0,0" VerticalContentAlignment="Center"/>
+                                </Grid>
+
+                                <!-- Solitary -->
+                                <TextBlock Text="Solitary:" Margin="0,8,0,2"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="60"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Slider x:Name="SolitaryProbSlider" Minimum="0" Maximum="1" Value="0.1" TickFrequency="0.05" ValueChanged="Slider_ValueChanged"/>
+                                    <TextBox x:Name="SolitaryProbTextBox" Grid.Column="1" Text="0.1" Margin="5,0,0,0" VerticalContentAlignment="Center"/>
+                                </Grid>
+
+                                <!-- Neutral -->
+                                <TextBlock Text="Neutral:" Margin="0,8,0,2"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="60"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Slider x:Name="NeutralProbSlider" Minimum="0" Maximum="1" Value="0.1" TickFrequency="0.05" ValueChanged="Slider_ValueChanged"/>
+                                    <TextBox x:Name="NeutralProbTextBox" Grid.Column="1" Text="0.1" Margin="5,0,0,0" VerticalContentAlignment="Center"/>
+                                </Grid>
+
+                                <Separator Margin="0,20"/>
+
+                                <!-- Ability Parameters -->
+                                <TextBlock Text="Ability Cooldowns &amp; Costs:" FontWeight="Bold" FontSize="14" Margin="0,10,0,10"/>
+
+                                <!-- Splitting -->
+                                <TextBlock Text="Splitting Cooldown (seconds):" Margin="0,5,0,2"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="60"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Slider x:Name="SplittingCooldownSlider" Minimum="1" Maximum="30" Value="5" TickFrequency="1" ValueChanged="Slider_ValueChanged"/>
+                                    <TextBox x:Name="SplittingCooldownTextBox" Grid.Column="1" Text="5.0" Margin="5,0,0,0" VerticalContentAlignment="Center"/>
+                                </Grid>
+
+                                <!-- Reproduction -->
+                                <TextBlock Text="Reproduction Cooldown (seconds):" Margin="0,8,0,2"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="60"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Slider x:Name="ReproductionCooldownSlider" Minimum="1" Maximum="30" Value="8" TickFrequency="1" ValueChanged="Slider_ValueChanged"/>
+                                    <TextBox x:Name="ReproductionCooldownTextBox" Grid.Column="1" Text="8.0" Margin="5,0,0,0" VerticalContentAlignment="Center"/>
+                                </Grid>
+
+                                <!-- Phasing -->
+                                <TextBlock Text="Phasing Cooldown (seconds):" Margin="0,8,0,2"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="60"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Slider x:Name="PhasingCooldownSlider" Minimum="1" Maximum="30" Value="10" TickFrequency="1" ValueChanged="Slider_ValueChanged"/>
+                                    <TextBox x:Name="PhasingCooldownTextBox" Grid.Column="1" Text="10.0" Margin="5,0,0,0" VerticalContentAlignment="Center"/>
+                                </Grid>
+
+                                <TextBlock Text="Phasing Duration (seconds):" Margin="0,8,0,2"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="60"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Slider x:Name="PhasingDurationSlider" Minimum="0.5" Maximum="10" Value="2" TickFrequency="0.5" ValueChanged="Slider_ValueChanged"/>
+                                    <TextBox x:Name="PhasingDurationTextBox" Grid.Column="1" Text="2.0" Margin="5,0,0,0" VerticalContentAlignment="Center"/>
+                                </Grid>
+
+                                <!-- Legacy Cost Fields (kept for compatibility) -->
+                                <TextBlock Text="Note: Energy costs now scale with particle mass" FontStyle="Italic" FontSize="10" Margin="0,20,0,5" TextWrapping="Wrap"/>
+                                <Grid Visibility="Collapsed">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition/>
+                                        <RowDefinition/>
+                                        <RowDefinition/>
+                                        <RowDefinition/>
+                                        <RowDefinition/>
+                                        <RowDefinition/>
+                                        <RowDefinition/>
+                                    </Grid.RowDefinitions>
+                                    <TextBox x:Name="SplittingEnergyCostTextBox" Grid.Row="0" Text="50.0"/>
+                                    <TextBox x:Name="ReproductionEnergyCostTextBox" Grid.Row="1" Text="40.0"/>
+                                    <TextBox x:Name="PhasingEnergyCostTextBox" Grid.Row="2" Text="30.0"/>
+                                    <TextBox x:Name="SplittingSeparationTextBox" Grid.Row="3" Text="100.0"/>
+                                    <TextBox x:Name="ReproductionMassTransferTextBox" Grid.Row="4" Text="0.3"/>
+                                    <TextBox x:Name="ReproductionEnergyTransferTextBox" Grid.Row="5" Text="0.5"/>
+                                </Grid>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </TabItem>
+                </TabControl>
+            </Grid>
         </Border>
     </Grid>
 </Window>

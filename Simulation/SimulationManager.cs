@@ -15,6 +15,7 @@ public class SimulationManager
     private readonly PhysicsEngine _physicsEngine;
     private readonly ParticleRenderer _renderer;
     private readonly ParticleFactory _factory;
+    private readonly PerformanceMonitor _performanceMonitor;
 
     private List<Particle> _particles;
     private DateTime _lastUpdateTime;
@@ -23,6 +24,7 @@ public class SimulationManager
     public bool IsRunning => _isRunning;
     public List<Particle> Particles => _particles;
     public ParticleRenderer Renderer => _renderer;
+    public PerformanceMonitor PerformanceMonitor => _performanceMonitor;
 
     public SimulationManager(Canvas canvas, SimulationConfig config)
     {
@@ -31,6 +33,7 @@ public class SimulationManager
         _physicsEngine = new PhysicsEngine(config);
         _renderer = new ParticleRenderer(canvas);
         _factory = new ParticleFactory(config);
+        _performanceMonitor = new PerformanceMonitor(60); // Track last 60 frames
 
         _particles = new List<Particle>();
         _lastUpdateTime = DateTime.Now;
@@ -79,6 +82,9 @@ public class SimulationManager
     {
         if (!_isRunning) return;
 
+        // Start performance tracking
+        _performanceMonitor.StartFrame();
+
         // Calculate delta time
         var currentTime = DateTime.Now;
         double deltaTime = (currentTime - _lastUpdateTime).TotalSeconds;
@@ -89,13 +95,20 @@ public class SimulationManager
         deltaTime = Math.Min(deltaTime, 0.033);
 
         // Skip update if delta time is too small
-        if (deltaTime < 0.001) return;
+        if (deltaTime < 0.001)
+        {
+            _performanceMonitor.EndFrame();
+            return;
+        }
 
         // Update physics (pass renderer for explosion effects)
         _physicsEngine.Update(_particles, deltaTime, _renderer);
 
         // Update rendering
         _renderer.Render(_particles, deltaTime);
+
+        // End performance tracking
+        _performanceMonitor.EndFrame();
     }
 
     // Add a new particle at the specified position
@@ -138,10 +151,14 @@ public class SimulationManager
 
     private ParticleAbilities CreateRandomAbilities(double mass, Random random)
     {
+        // Energy capacity scales with mass
+        // Normalize by minimum mass so particles have comparable starting energy
+        double energyCapacity = mass * (_config.BaseEnergyCapacity / _config.MinMass);
+
         var abilities = new ParticleAbilities
         {
-            Energy = mass * (_config.BaseEnergyCapacity / 10.0),
-            MaxEnergy = mass * (_config.BaseEnergyCapacity / 10.0),
+            Energy = energyCapacity,
+            MaxEnergy = energyCapacity,
             Type = ChooseRandomType(random),
             Generation = 0,
             Abilities = AbilitySet.None,
@@ -209,6 +226,9 @@ public class SimulationManager
 
         if (abilities.HasAbility(AbilitySet.Phasing))
             abilities.InitializeCooldown(AbilityType.Phasing, 10.0);
+
+        if (abilities.HasAbility(AbilitySet.SpeedBurst))
+            abilities.InitializeCooldown(AbilityType.SpeedBurst, 7.0);
     }
 
     // Find a particle at or near the specified position
