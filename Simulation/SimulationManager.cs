@@ -259,19 +259,7 @@ public class SimulationManager
     // Find a particle at or near the specified position
     public Particle? FindParticleAtPosition(Vector2 position)
     {
-        foreach (var particle in _particles)
-        {
-            float dx = particle.Position.X - position.X;
-            float dy = particle.Position.Y - position.Y;
-            float distanceSquared = dx * dx + dy * dy;
-
-            if (distanceSquared <= particle.Radius * particle.Radius)
-            {
-                return particle;
-            }
-        }
-
-        return null;
+        return ParticleQueryUtility.FindParticleAtPosition(position, _particles);
     }
 
     // Apply an impulse (instantaneous force) to a particle in a specific direction

@@ -1,5 +1,6 @@
 using System.Numerics;
 using DotGame.Models;
+using DotGame.Utilities;
 
 namespace DotGame.Abilities;
 
@@ -22,12 +23,12 @@ public class FleeAbility : IAbility
             return false;
 
         // Flee from larger predators
-        return FindThreat(particle, context) != null;
+        return ParticleQueryUtility.FindThreat(particle, context.AllParticles, _config) != null;
     }
 
     public void Execute(Particle particle, AbilityContext context)
     {
-        var threat = FindThreat(particle, context);
+        var threat = ParticleQueryUtility.FindThreat(particle, context.AllParticles, _config);
         if (threat == null) return;
 
         // Calculate direction away from threat
@@ -60,35 +61,4 @@ public class FleeAbility : IAbility
         }
     }
 
-    private Particle? FindThreat(Particle particle, AbilityContext context)
-    {
-        if (!particle.HasAbilities) return null;
-
-        Particle? closestThreat = null;
-        float closestDistance = float.MaxValue;
-
-        foreach (var other in context.AllParticles)
-        {
-            if (other.Id == particle.Id) continue;
-            if (!other.IsAlive) continue;
-
-            // A threat is a particle that is significantly larger (can eat us)
-            if (other.Radius < particle.Radius * _config.SizeRatioForEating)
-                continue;
-
-            float distance = Vector2.Distance(particle.Position, other.Position);
-
-            // Only flee if within vision range
-            if (distance <= particle.Abilities.VisionRange)
-            {
-                if (distance < closestDistance)
-                {
-                    closestDistance = distance;
-                    closestThreat = other;
-                }
-            }
-        }
-
-        return closestThreat;
-    }
 }

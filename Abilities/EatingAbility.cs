@@ -24,13 +24,13 @@ public class EatingAbility : IAbility
             return false;
 
         // Find nearby particles that can be eaten
-        var prey = FindEdibleParticle(particle, context);
+        var prey = ParticleQueryUtility.FindEdiblePrey(particle, context.AllParticles, _config);
         return prey != null;
     }
 
     public void Execute(Particle particle, AbilityContext context)
     {
-        var prey = FindEdibleParticle(particle, context);
+        var prey = ParticleQueryUtility.FindEdiblePrey(particle, context.AllParticles, _config);
         if (prey == null) return;
 
         // Check if particles are touching
@@ -94,42 +94,6 @@ public class EatingAbility : IAbility
         particle.Abilities.CurrentState = AbilityState.Eating;
     }
 
-    private Particle? FindEdibleParticle(Particle particle, AbilityContext context)
-    {
-        Particle? closestPrey = null;
-        float closestDistance = float.MaxValue;
-
-        foreach (var other in context.AllParticles)
-        {
-            if (other.Id == particle.Id) continue;
-            if (!other.IsAlive) continue;
-
-            // Cannot eat particles that are being born
-            if (other.HasAbilities && other.Abilities.IsBirthing)
-                continue;
-
-            // Size check: predator must be significantly larger (1.5x+)
-            if (particle.Radius < other.Radius * _config.SizeRatioForEating)
-                continue;
-
-            float distance = Vector2.Distance(particle.Position, other.Position);
-
-            // Check if within vision range + touching distance
-            double detectionRange = particle.HasAbilities ?
-                particle.Abilities.VisionRange : particle.Radius * 3;
-
-            if (distance <= detectionRange + particle.Radius + other.Radius)
-            {
-                if (distance < closestDistance)
-                {
-                    closestDistance = distance;
-                    closestPrey = other;
-                }
-            }
-        }
-
-        return closestPrey;
-    }
 
     private void InheritAbilities(Particle predator, Particle prey)
     {

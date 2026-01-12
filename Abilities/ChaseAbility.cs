@@ -1,5 +1,6 @@
 using System.Numerics;
 using DotGame.Models;
+using DotGame.Utilities;
 
 namespace DotGame.Abilities;
 
@@ -22,12 +23,12 @@ public class ChaseAbility : IAbility
             return false;
 
         // Chase when hungry and see smaller prey
-        return particle.IsHungry && FindTarget(particle, context) != null;
+        return particle.IsHungry && ParticleQueryUtility.FindChaseTarget(particle, context.AllParticles, _config) != null;
     }
 
     public void Execute(Particle particle, AbilityContext context)
     {
-        var target = FindTarget(particle, context);
+        var target = ParticleQueryUtility.FindChaseTarget(particle, context.AllParticles, _config);
         if (target == null) return;
 
         // Apply force toward target
@@ -60,35 +61,4 @@ public class ChaseAbility : IAbility
         }
     }
 
-    private Particle? FindTarget(Particle particle, AbilityContext context)
-    {
-        if (!particle.HasAbilities) return null;
-
-        Particle? closestTarget = null;
-        float closestDistance = float.MaxValue;
-
-        foreach (var other in context.AllParticles)
-        {
-            if (other.Id == particle.Id) continue;
-            if (!other.IsAlive) continue;
-
-            // Only chase particles that are smaller (can be eaten)
-            if (particle.Radius < other.Radius * _config.SizeRatioForEating)
-                continue;
-
-            float distance = Vector2.Distance(particle.Position, other.Position);
-
-            // Only chase if within vision range
-            if (distance <= particle.Abilities.VisionRange)
-            {
-                if (distance < closestDistance)
-                {
-                    closestDistance = distance;
-                    closestTarget = other;
-                }
-            }
-        }
-
-        return closestTarget;
-    }
 }
