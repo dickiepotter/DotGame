@@ -2,13 +2,14 @@ using System;
 using System.Numerics;
 using DotGame.Models;
 using DotGame.Utilities;
+using static DotGame.Utilities.GameplayConstants;
 
 namespace DotGame.Abilities;
 
 public class SplittingAbility : IAbility
 {
     private readonly SimulationConfig _config;
-    private static int _nextParticleId = 10000; // Start high to avoid conflicts
+    private static int _nextParticleId = SPLITTING_PARTICLE_ID_START;
 
     public SplittingAbility(SimulationConfig config)
     {

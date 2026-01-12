@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using DotGame.Models;
+using DotGame.Utilities;
 
 namespace DotGame.Abilities;
 
@@ -206,7 +207,7 @@ public class AbilityManager
             // Preserve alpha channel for phasing particles (semi-transparent)
             if (particle.Abilities.IsPhasing)
             {
-                particle.Color = System.Windows.Media.Color.FromArgb(128,
+                particle.Color = System.Windows.Media.Color.FromArgb(RenderingConstants.PHASING_OPACITY,
                     newColor.R, newColor.G, newColor.B);
             }
             else

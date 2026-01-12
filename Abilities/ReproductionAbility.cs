@@ -2,13 +2,14 @@ using System;
 using System.Numerics;
 using DotGame.Models;
 using DotGame.Utilities;
+using static DotGame.Utilities.GameplayConstants;
 
 namespace DotGame.Abilities;
 
 public class ReproductionAbility : IAbility
 {
     private readonly SimulationConfig _config;
-    private static int _nextParticleId = 20000; // Start high to avoid conflicts
+    private static int _nextParticleId = REPRODUCTION_PARTICLE_ID_START;
     private readonly RandomGenerator _random;
 
     public ReproductionAbility(SimulationConfig config)
@@ -25,8 +26,8 @@ public class ReproductionAbility : IAbility
     {
         if (!particle.HasAbilities) return false;
 
-        // Can only reproduce if energy is sufficient (>60%)
-        if (particle.EnergyPercentage < 0.6) return false;
+        // Can only reproduce if energy is sufficient
+        if (particle.EnergyPercentage < REPRODUCTION_ENERGY_THRESHOLD) return false;
 
         // Must have enough mass to give to offspring
         double minMass = _config.MinMass;
@@ -183,23 +184,23 @@ public class ReproductionAbility : IAbility
             parent.EnergyConservationThreshold + (_random.NextDouble(0, 1) * 2 - 1) * variance,
             _config.EnergyConservationThresholdMin, _config.EnergyConservationThresholdMax);
 
-        // Inherit abilities with some randomness (70% chance per ability)
-        if (parent.HasAbility(AbilitySet.Eating) && _random.NextDouble(0, 1) < 0.7)
+        // Inherit abilities with some randomness
+        if (parent.HasAbility(AbilitySet.Eating) && _random.NextDouble(0, 1) < ABILITY_INHERITANCE_CHANCE)
             offspring.Abilities |= AbilitySet.Eating;
 
-        if (parent.HasAbility(AbilitySet.Splitting) && _random.NextDouble(0, 1) < 0.7)
+        if (parent.HasAbility(AbilitySet.Splitting) && _random.NextDouble(0, 1) < ABILITY_INHERITANCE_CHANCE)
             offspring.Abilities |= AbilitySet.Splitting;
 
-        if (parent.HasAbility(AbilitySet.Reproduction) && _random.NextDouble(0, 1) < 0.7)
+        if (parent.HasAbility(AbilitySet.Reproduction) && _random.NextDouble(0, 1) < ABILITY_INHERITANCE_CHANCE)
             offspring.Abilities |= AbilitySet.Reproduction;
 
-        if (parent.HasAbility(AbilitySet.Phasing) && _random.NextDouble(0, 1) < 0.7)
+        if (parent.HasAbility(AbilitySet.Phasing) && _random.NextDouble(0, 1) < ABILITY_INHERITANCE_CHANCE)
             offspring.Abilities |= AbilitySet.Phasing;
 
-        if (parent.HasAbility(AbilitySet.Chase) && _random.NextDouble(0, 1) < 0.7)
+        if (parent.HasAbility(AbilitySet.Chase) && _random.NextDouble(0, 1) < ABILITY_INHERITANCE_CHANCE)
             offspring.Abilities |= AbilitySet.Chase;
 
-        if (parent.HasAbility(AbilitySet.Flee) && _random.NextDouble(0, 1) < 0.7)
+        if (parent.HasAbility(AbilitySet.Flee) && _random.NextDouble(0, 1) < ABILITY_INHERITANCE_CHANCE)
             offspring.Abilities |= AbilitySet.Flee;
 
         // Initialize cooldowns for inherited abilities

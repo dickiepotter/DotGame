@@ -8,6 +8,7 @@ using Microsoft.Win32;
 using System.Windows.Threading;
 using DotGame.Models;
 using DotGame.Simulation;
+using DotGame.Utilities;
 using System.Collections.Generic;
 
 namespace DotGame.Views;
@@ -44,10 +45,10 @@ public partial class MainWindow : Window
         }
         PresetComboBox.SelectedIndex = 0; // Select "Default"
 
-        // Setup UI update timer (update FPS and stats every 200ms)
+        // Setup UI update timer
         _uiUpdateTimer = new DispatcherTimer
         {
-            Interval = TimeSpan.FromMilliseconds(200)
+            Interval = TimeSpan.FromMilliseconds(RenderingConstants.UI_UPDATE_INTERVAL_MS)
         };
         _uiUpdateTimer.Tick += UiUpdateTimer_Tick;
         _uiUpdateTimer.Start();
@@ -302,9 +303,9 @@ public partial class MainWindow : Window
         FpsTextBlock.Text = $"{perfMonitor.FPS:F1}";
 
         // Color code FPS (green = good, yellow = ok, red = bad)
-        if (perfMonitor.FPS >= 50)
+        if (perfMonitor.FPS >= RenderingConstants.FPS_GOOD_THRESHOLD)
             FpsTextBlock.Foreground = System.Windows.Media.Brushes.Green;
-        else if (perfMonitor.FPS >= 30)
+        else if (perfMonitor.FPS >= RenderingConstants.FPS_OK_THRESHOLD)
             FpsTextBlock.Foreground = System.Windows.Media.Brushes.Orange;
         else
             FpsTextBlock.Foreground = System.Windows.Media.Brushes.Red;
@@ -426,8 +427,8 @@ public partial class MainWindow : Window
         TooltipText.Text = details;
 
         // Position tooltip near mouse cursor with offset
-        const double offsetX = 15;
-        const double offsetY = 15;
+        const double offsetX = RenderingConstants.TOOLTIP_OFFSET_X;
+        const double offsetY = RenderingConstants.TOOLTIP_OFFSET_Y;
         double left = mousePos.X + offsetX;
         double top = mousePos.Y + offsetY;
 
