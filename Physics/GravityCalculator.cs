@@ -1,5 +1,6 @@
 using System.Numerics;
 using DotGame.Models;
+using DotGame.Utilities;
 
 namespace DotGame.Physics;
 
@@ -31,8 +32,7 @@ public class GravityCalculator
 
         // Avoid division by zero and excessive forces at close range
         // Minimum distance threshold prevents singularity
-        const float minDistance = 1.0f;
-        if (distanceSquared < minDistance * minDistance)
+        if (distanceSquared < PhysicsConstants.MIN_GRAVITY_DISTANCE * PhysicsConstants.MIN_GRAVITY_DISTANCE)
             return;
 
         float distance = MathF.Sqrt(distanceSquared);
@@ -48,14 +48,13 @@ public class GravityCalculator
         Vector2 accelB = -force * (float)b.InverseMass;
 
         // Clamp gravity acceleration per frame to prevent it from dominating other forces
-        const float maxGravityAccel = 200.0f;
-        if (accelA.Length() > maxGravityAccel)
+        if (accelA.Length() > PhysicsConstants.MAX_GRAVITY_ACCELERATION)
         {
-            accelA = Vector2.Normalize(accelA) * maxGravityAccel;
+            accelA = Vector2.Normalize(accelA) * PhysicsConstants.MAX_GRAVITY_ACCELERATION;
         }
-        if (accelB.Length() > maxGravityAccel)
+        if (accelB.Length() > PhysicsConstants.MAX_GRAVITY_ACCELERATION)
         {
-            accelB = Vector2.Normalize(accelB) * maxGravityAccel;
+            accelB = Vector2.Normalize(accelB) * PhysicsConstants.MAX_GRAVITY_ACCELERATION;
         }
 
         // Apply acceleration (F = ma -> a = F/m)

@@ -5,6 +5,7 @@ using DotGame.Models;
 using DotGame.Physics;
 using DotGame.Rendering;
 using DotGame.Utilities;
+using static DotGame.Utilities.PhysicsConstants;
 
 namespace DotGame.Simulation;
 
@@ -91,11 +92,10 @@ public class SimulationManager
         _lastUpdateTime = currentTime;
 
         // Cap delta time to prevent physics instability
-        // Max 33ms = minimum 30 FPS
-        deltaTime = Math.Min(deltaTime, 0.033);
+        deltaTime = Math.Min(deltaTime, MAX_DELTA_TIME);
 
         // Skip update if delta time is too small
-        if (deltaTime < 0.001)
+        if (deltaTime < MIN_DELTA_TIME)
         {
             _performanceMonitor.EndFrame();
             return;

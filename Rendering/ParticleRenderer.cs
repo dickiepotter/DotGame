@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Shapes;
 using DotGame.Models;
+using DotGame.Utilities;
 
 namespace DotGame.Rendering;
 
@@ -103,7 +104,7 @@ public class ParticleRenderer
 
     private void CreateGrid()
     {
-        const double gridSpacing = 50;
+        const double gridSpacing = RenderingConstants.GRID_SPACING;
         var canvasWidth = _canvas.ActualWidth;
         var canvasHeight = _canvas.ActualHeight;
 
@@ -149,7 +150,7 @@ public class ParticleRenderer
     private void CreateEnergyBar(Particle particle)
     {
         double barWidth = particle.Radius * 2;
-        double barHeight = 4;
+        double barHeight = RenderingConstants.ENERGY_BAR_HEIGHT;
 
         // Background (red)
         var bgBar = new Rectangle
@@ -216,7 +217,8 @@ public class ParticleRenderer
                     renderRadius = birth.GetCurrentRadius();
 
                     // Add transparency during birth
-                    double alpha = 0.3 + (0.7 * birth.EasedProgress);
+                    double alpha = RenderingConstants.BIRTH_MIN_OPACITY +
+                                  ((RenderingConstants.BIRTH_MAX_OPACITY - RenderingConstants.BIRTH_MIN_OPACITY) * birth.EasedProgress);
                     byte alphaValue = (byte)(alpha * 255);
                     ellipse.Fill = new SolidColorBrush(Color.FromArgb(
                         alphaValue, particle.Color.R, particle.Color.G, particle.Color.B));
@@ -335,8 +337,8 @@ public class ParticleRenderer
             var polyline = new Polyline
             {
                 Stroke = Brushes.Gray,
-                StrokeThickness = 1,
-                Opacity = 0.3
+                StrokeThickness = RenderingConstants.TRAIL_LINE_THICKNESS,
+                Opacity = RenderingConstants.TRAIL_OPACITY
             };
 
             foreach (var pos in trail)
@@ -369,9 +371,9 @@ public class ParticleRenderer
             _visionConeEllipse = new Ellipse
             {
                 Stroke = Brushes.Yellow,
-                StrokeThickness = 2,
+                StrokeThickness = RenderingConstants.VISION_CONE_LINE_THICKNESS,
                 Fill = Brushes.Transparent,
-                Opacity = 0.5
+                Opacity = RenderingConstants.VISION_CONE_OPACITY
             };
             _canvas.Children.Add(_visionConeEllipse);
             Canvas.SetZIndex(_visionConeEllipse, -50); // Behind particles but above trails
@@ -402,9 +404,9 @@ public class ParticleRenderer
                 return;
         }
 
-        const double barWidth = 30;
-        const double barHeight = 4;
-        const double barOffset = 8;
+        const double barWidth = RenderingConstants.ENERGY_BAR_WIDTH;
+        const double barHeight = RenderingConstants.ENERGY_BAR_HEIGHT;
+        const double barOffset = RenderingConstants.ENERGY_BAR_OFFSET;
 
         // Position above particle
         double x = particle.Position.X - barWidth / 2;
@@ -420,10 +422,10 @@ public class ParticleRenderer
         energyPercent = Math.Clamp(energyPercent, 0, 1);
         bars.fg.Width = barWidth * energyPercent;
 
-        // Color code: green > 60%, yellow > 30%, red otherwise
-        if (energyPercent > 0.6)
+        // Color code based on energy thresholds
+        if (energyPercent > RenderingConstants.ENERGY_HIGH_THRESHOLD)
             bars.fg.Fill = Brushes.LimeGreen;
-        else if (energyPercent > 0.3)
+        else if (energyPercent > RenderingConstants.ENERGY_MEDIUM_THRESHOLD)
             bars.fg.Fill = Brushes.Yellow;
         else
             bars.fg.Fill = Brushes.OrangeRed;

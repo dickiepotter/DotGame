@@ -2,6 +2,7 @@ using System.Numerics;
 using DotGame.Models;
 using DotGame.Abilities;
 using DotGame.Rendering;
+using DotGame.Utilities;
 
 namespace DotGame.Physics;
 
@@ -90,7 +91,7 @@ public class PhysicsEngine
     private void IntegrateMotion(List<Particle> particles, double deltaTime)
     {
         float dt = (float)deltaTime;
-        float maxVelocity = (float)_config.MaxInitialVelocity * 2.0f; // 2x initial max
+        float maxVelocity = (float)_config.MaxInitialVelocity * PhysicsConstants.MAX_VELOCITY_MULTIPLIER;
 
         foreach (var particle in particles)
         {
@@ -101,10 +102,10 @@ public class PhysicsEngine
             float velocityMultiplier = 1.0f;
             if (particle.HasAbilities)
             {
-                // Speed boost ability (temporary 2x speed)
+                // Speed boost ability (temporary speed increase)
                 if (particle.Abilities.IsSpeedBoosted)
                 {
-                    velocityMultiplier = 2.0f;
+                    velocityMultiplier = PhysicsConstants.SPEED_BOOST_MULTIPLIER;
                 }
                 // Energy-based dynamic speed multiplier (stacks with speed boost)
                 velocityMultiplier *= (float)particle.Abilities.MovementSpeedMultiplier;
