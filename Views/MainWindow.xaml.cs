@@ -9,6 +9,7 @@ using System.Windows.Threading;
 using DotGame.Models;
 using DotGame.Simulation;
 using DotGame.Utilities;
+using DotGame.UI;
 using System.Collections.Generic;
 
 namespace DotGame.Views;
@@ -18,6 +19,7 @@ public partial class MainWindow : Window
     private SimulationManager? _simulationManager;
     private SimulationConfig _config;
     private DispatcherTimer? _uiUpdateTimer;
+    private ConfigUIBinder? _configBinder;
 
     // Mouse interaction state
     private Particle? _draggedParticle;
@@ -37,6 +39,9 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         _config = new SimulationConfig();
+
+        // Initialize ConfigUIBinder after InitializeComponent so controls are available
+        InitializeConfigBinder();
 
         // Populate preset ComboBox
         foreach (var presetName in ConfigurationPresets.GetPresetNames())
@@ -104,182 +109,142 @@ public partial class MainWindow : Window
         UpdateInfo();
     }
 
+    private void InitializeConfigBinder()
+    {
+        var controls = new UIControlCollection
+        {
+            // Basic Configuration
+            ParticleCountSlider = ParticleCountSlider,
+            ParticleCountTextBox = ParticleCountTextBox,
+            SeedTextBox = SeedTextBox,
+            SimWidthTextBox = SimWidthTextBox,
+            SimHeightTextBox = SimHeightTextBox,
+            MaxParticlesSlider = MaxParticlesSlider,
+            MaxParticlesTextBox = MaxParticlesTextBox,
+
+            // Physics Parameters
+            GravitySlider = GravitySlider,
+            GravityTextBox = GravityTextBox,
+            DampingSlider = DampingSlider,
+            DampingTextBox = DampingTextBox,
+            RestitutionSlider = RestitutionSlider,
+            RestitutionTextBox = RestitutionTextBox,
+
+            // Particle Ranges
+            MinMassSlider = MinMassSlider,
+            MinMassTextBox = MinMassTextBox,
+            MaxMassSlider = MaxMassSlider,
+            MaxMassTextBox = MaxMassTextBox,
+            MinRadiusSlider = MinRadiusSlider,
+            MinRadiusTextBox = MinRadiusTextBox,
+            MaxRadiusSlider = MaxRadiusSlider,
+            MaxRadiusTextBox = MaxRadiusTextBox,
+            MaxVelocitySlider = MaxVelocitySlider,
+            MaxVelocityTextBox = MaxVelocityTextBox,
+
+            // Physics Toggles
+            UseGravityCheckBox = UseGravityCheckBox,
+            UseCollisionsCheckBox = UseCollisionsCheckBox,
+            UseBoundariesCheckBox = UseBoundariesCheckBox,
+            UseDampingCheckBox = UseDampingCheckBox,
+            UseSpatialPartitioningCheckBox = UseSpatialPartitioningCheckBox,
+
+            // Ability Toggles
+            UseAbilitiesCheckBox = UseAbilitiesCheckBox,
+            UseEatingCheckBox = UseEatingCheckBox,
+            UseSplittingCheckBox = UseSplittingCheckBox,
+            UseReproductionCheckBox = UseReproductionCheckBox,
+            UsePhasingCheckBox = UsePhasingCheckBox,
+            UseChaseCheckBox = UseChaseCheckBox,
+            UseFleeCheckBox = UseFleeCheckBox,
+
+            // Energy Parameters
+            BaseEnergySlider = BaseEnergySlider,
+            BaseEnergyTextBox = BaseEnergyTextBox,
+            PassiveDrainSlider = PassiveDrainSlider,
+            PassiveDrainTextBox = PassiveDrainTextBox,
+            EatingGainSlider = EatingGainSlider,
+            EatingGainTextBox = EatingGainTextBox,
+            SizeRatioSlider = SizeRatioSlider,
+            SizeRatioTextBox = SizeRatioTextBox,
+            VisionRangeSlider = VisionRangeSlider,
+            VisionRangeTextBox = VisionRangeTextBox,
+            HungerThresholdSlider = HungerThresholdSlider,
+            HungerThresholdTextBox = HungerThresholdTextBox,
+
+            // Chase/Flee Parameters
+            ChaseForceSlider = ChaseForceSlider,
+            ChaseForceTextBox = ChaseForceTextBox,
+            FleeForceSlider = FleeForceSlider,
+            FleeForceTextBox = FleeForceTextBox,
+            ChaseEnergyCostSlider = ChaseEnergyCostSlider,
+            ChaseEnergyCostTextBox = ChaseEnergyCostTextBox,
+            FleeEnergyCostSlider = FleeEnergyCostSlider,
+            FleeEnergyCostTextBox = FleeEnergyCostTextBox,
+
+            // Splitting Parameters
+            SplittingEnergyCostTextBox = SplittingEnergyCostTextBox,
+            SplittingCooldownSlider = SplittingCooldownSlider,
+            SplittingCooldownTextBox = SplittingCooldownTextBox,
+            SplittingSeparationTextBox = SplittingSeparationTextBox,
+
+            // Reproduction Parameters
+            ReproductionEnergyCostTextBox = ReproductionEnergyCostTextBox,
+            ReproductionCooldownSlider = ReproductionCooldownSlider,
+            ReproductionCooldownTextBox = ReproductionCooldownTextBox,
+            ReproductionMassTransferTextBox = ReproductionMassTransferTextBox,
+            ReproductionEnergyTransferTextBox = ReproductionEnergyTransferTextBox,
+
+            // Phasing Parameters
+            PhasingEnergyCostTextBox = PhasingEnergyCostTextBox,
+            PhasingCooldownSlider = PhasingCooldownSlider,
+            PhasingCooldownTextBox = PhasingCooldownTextBox,
+            PhasingDurationSlider = PhasingDurationSlider,
+            PhasingDurationTextBox = PhasingDurationTextBox,
+
+            // Other Ability Cooldowns
+            EatingCooldownSlider = EatingCooldownSlider,
+            EatingCooldownTextBox = EatingCooldownTextBox,
+            ChaseCooldownSlider = ChaseCooldownSlider,
+            ChaseCooldownTextBox = ChaseCooldownTextBox,
+            FleeCooldownSlider = FleeCooldownSlider,
+            FleeCooldownTextBox = FleeCooldownTextBox,
+            SpeedBurstCooldownSlider = SpeedBurstCooldownSlider,
+            SpeedBurstCooldownTextBox = SpeedBurstCooldownTextBox,
+
+            // Ability Probabilities
+            EatingProbSlider = EatingProbSlider,
+            EatingProbTextBox = EatingProbTextBox,
+            SplittingProbSlider = SplittingProbSlider,
+            SplittingProbTextBox = SplittingProbTextBox,
+            ReproductionProbSlider = ReproductionProbSlider,
+            ReproductionProbTextBox = ReproductionProbTextBox,
+            PhasingProbSlider = PhasingProbSlider,
+            PhasingProbTextBox = PhasingProbTextBox,
+            ChaseProbSlider = ChaseProbSlider,
+            ChaseProbTextBox = ChaseProbTextBox,
+            FleeProbSlider = FleeProbSlider,
+            FleeProbTextBox = FleeProbTextBox,
+
+            // Type Distribution
+            PredatorProbSlider = PredatorProbSlider,
+            PredatorProbTextBox = PredatorProbTextBox,
+            HerbivoreProbSlider = HerbivoreProbSlider,
+            HerbivoreProbTextBox = HerbivoreProbTextBox,
+            SocialProbSlider = SocialProbSlider,
+            SocialProbTextBox = SocialProbTextBox,
+            SolitaryProbSlider = SolitaryProbSlider,
+            SolitaryProbTextBox = SolitaryProbTextBox,
+            NeutralProbSlider = NeutralProbSlider,
+            NeutralProbTextBox = NeutralProbTextBox
+        };
+
+        _configBinder = new ConfigUIBinder(_config, controls);
+    }
+
     private void UpdateConfigFromUI()
     {
-        // Basic Configuration
-        if (int.TryParse(ParticleCountTextBox.Text, out int particleCount))
-            _config.ParticleCount = particleCount;
-
-        if (int.TryParse(SeedTextBox.Text, out int seed))
-            _config.RandomSeed = seed;
-
-        if (double.TryParse(SimWidthTextBox.Text, out double simWidth))
-            _config.SimulationWidth = simWidth;
-
-        if (double.TryParse(SimHeightTextBox.Text, out double simHeight))
-            _config.SimulationHeight = simHeight;
-
-        if (int.TryParse(MaxParticlesTextBox.Text, out int maxParticles))
-            _config.MaxParticles = maxParticles;
-
-        // Physics Parameters
-        if (double.TryParse(GravityTextBox.Text, out double gravity))
-            _config.GravitationalConstant = gravity;
-
-        if (double.TryParse(DampingTextBox.Text, out double damping))
-            _config.DampingFactor = damping;
-
-        if (double.TryParse(RestitutionTextBox.Text, out double restitution))
-            _config.RestitutionCoefficient = restitution;
-
-        // Particle Ranges
-        if (double.TryParse(MinMassTextBox.Text, out double minMass))
-            _config.MinMass = minMass;
-
-        if (double.TryParse(MaxMassTextBox.Text, out double maxMass))
-            _config.MaxMass = maxMass;
-
-        if (double.TryParse(MinRadiusTextBox.Text, out double minRadius))
-            _config.MinRadius = minRadius;
-
-        if (double.TryParse(MaxRadiusTextBox.Text, out double maxRadius))
-            _config.MaxRadius = maxRadius;
-
-        if (double.TryParse(MaxVelocityTextBox.Text, out double maxVelocity))
-            _config.MaxInitialVelocity = maxVelocity;
-
-        // Physics Toggles
-        _config.UseGravity = UseGravityCheckBox.IsChecked ?? true;
-        _config.UseCollisions = UseCollisionsCheckBox.IsChecked ?? true;
-        _config.UseBoundaries = UseBoundariesCheckBox.IsChecked ?? true;
-        _config.UseDamping = UseDampingCheckBox.IsChecked ?? true;
-        _config.UseSpatialPartitioning = UseSpatialPartitioningCheckBox.IsChecked ?? true;
-
-        // Ability Toggles
-        _config.UseAbilities = UseAbilitiesCheckBox.IsChecked ?? true;
-        _config.UseEating = UseEatingCheckBox.IsChecked ?? true;
-        _config.UseSplitting = UseSplittingCheckBox.IsChecked ?? true;
-        _config.UseReproduction = UseReproductionCheckBox.IsChecked ?? true;
-        _config.UsePhasing = UsePhasingCheckBox.IsChecked ?? true;
-        _config.UseChase = UseChaseCheckBox.IsChecked ?? true;
-        _config.UseFlee = UseFleeCheckBox.IsChecked ?? true;
-
-        // Energy Parameters
-        if (double.TryParse(BaseEnergyTextBox.Text, out double baseEnergy))
-            _config.BaseEnergyCapacity = baseEnergy;
-
-        if (double.TryParse(PassiveDrainTextBox.Text, out double passiveDrain))
-            _config.PassiveEnergyDrain = passiveDrain;
-
-        if (double.TryParse(EatingGainTextBox.Text, out double eatingGain))
-            _config.EatingEnergyGain = eatingGain;
-
-        if (double.TryParse(SizeRatioTextBox.Text, out double sizeRatio))
-            _config.SizeRatioForEating = sizeRatio;
-
-        if (double.TryParse(VisionRangeTextBox.Text, out double visionRange))
-            _config.VisionRangeMultiplier = visionRange;
-
-        if (double.TryParse(HungerThresholdTextBox.Text, out double hungerThreshold))
-            _config.HungerThreshold = hungerThreshold;
-
-        // Chase/Flee Parameters
-        if (double.TryParse(ChaseForceTextBox.Text, out double chaseForce))
-            _config.ChaseForce = chaseForce;
-
-        if (double.TryParse(FleeForceTextBox.Text, out double fleeForce))
-            _config.FleeForce = fleeForce;
-
-        if (double.TryParse(ChaseEnergyCostTextBox.Text, out double chaseEnergyCost))
-            _config.ChaseEnergyCost = chaseEnergyCost;
-
-        if (double.TryParse(FleeEnergyCostTextBox.Text, out double fleeEnergyCost))
-            _config.FleeEnergyCost = fleeEnergyCost;
-
-        // Splitting Parameters
-        if (double.TryParse(SplittingEnergyCostTextBox.Text, out double splittingEnergyCost))
-            _config.SplittingEnergyCost = splittingEnergyCost;
-
-        if (double.TryParse(SplittingCooldownTextBox.Text, out double splittingCooldown))
-            _config.SplittingCooldown = splittingCooldown;
-
-        if (double.TryParse(SplittingSeparationTextBox.Text, out double splittingSeparation))
-            _config.SplittingSeparationForce = splittingSeparation;
-
-        // Reproduction Parameters
-        if (double.TryParse(ReproductionEnergyCostTextBox.Text, out double reproductionEnergyCost))
-            _config.ReproductionEnergyCost = reproductionEnergyCost;
-
-        if (double.TryParse(ReproductionCooldownTextBox.Text, out double reproductionCooldown))
-            _config.ReproductionCooldown = reproductionCooldown;
-
-        if (double.TryParse(ReproductionMassTransferTextBox.Text, out double reproductionMassTransfer))
-            _config.ReproductionMassTransfer = reproductionMassTransfer;
-
-        if (double.TryParse(ReproductionEnergyTransferTextBox.Text, out double reproductionEnergyTransfer))
-            _config.ReproductionEnergyTransfer = reproductionEnergyTransfer;
-
-        // Phasing Parameters
-        if (double.TryParse(PhasingEnergyCostTextBox.Text, out double phasingEnergyCost))
-            _config.PhasingEnergyCost = phasingEnergyCost;
-
-        if (double.TryParse(PhasingCooldownTextBox.Text, out double phasingCooldown))
-            _config.PhasingCooldown = phasingCooldown;
-
-        if (double.TryParse(PhasingDurationTextBox.Text, out double phasingDuration))
-            _config.PhasingDuration = phasingDuration;
-
-        // Other Ability Cooldowns
-        if (double.TryParse(EatingCooldownTextBox.Text, out double eatingCooldown))
-            _config.EatingCooldown = eatingCooldown;
-
-        if (double.TryParse(ChaseCooldownTextBox.Text, out double chaseCooldown))
-            _config.ChaseCooldown = chaseCooldown;
-
-        if (double.TryParse(FleeCooldownTextBox.Text, out double fleeCooldown))
-            _config.FleeCooldown = fleeCooldown;
-
-        if (double.TryParse(SpeedBurstCooldownTextBox.Text, out double speedBurstCooldown))
-            _config.SpeedBurstCooldown = speedBurstCooldown;
-
-        // Ability Probabilities
-        if (double.TryParse(EatingProbTextBox.Text, out double eatingProb))
-            _config.EatingProbability = eatingProb;
-
-        if (double.TryParse(SplittingProbTextBox.Text, out double splittingProb))
-            _config.SplittingProbability = splittingProb;
-
-        if (double.TryParse(ReproductionProbTextBox.Text, out double reproductionProb))
-            _config.ReproductionProbability = reproductionProb;
-
-        if (double.TryParse(PhasingProbTextBox.Text, out double phasingProb))
-            _config.PhasingProbability = phasingProb;
-
-        if (double.TryParse(ChaseProbTextBox.Text, out double chaseProb))
-            _config.ChaseProbability = chaseProb;
-
-        if (double.TryParse(FleeProbTextBox.Text, out double fleeProb))
-            _config.FleeProbability = fleeProb;
-
-        // Type Distribution
-        if (double.TryParse(PredatorProbTextBox.Text, out double predatorProb))
-            _config.PredatorProbability = predatorProb;
-
-        if (double.TryParse(HerbivoreProbTextBox.Text, out double herbivoreProb))
-            _config.HerbivoreProbability = herbivoreProb;
-
-        if (double.TryParse(SocialProbTextBox.Text, out double socialProb))
-            _config.SocialProbability = socialProb;
-
-        if (double.TryParse(SolitaryProbTextBox.Text, out double solitaryProb))
-            _config.SolitaryProbability = solitaryProb;
-
-        if (double.TryParse(NeutralProbTextBox.Text, out double neutralProb))
-            _config.NeutralProbability = neutralProb;
-
-        // Validate and normalize configuration
-        _config.ValidateAndClamp();
-        _config.NormalizeTypeProbabilities();
+        _configBinder?.UpdateConfigFromUI();
     }
 
     private void UpdateInfo()
@@ -610,130 +575,7 @@ public partial class MainWindow : Window
 
     private void PopulateUIFromConfig()
     {
-        // Basic Configuration
-        ParticleCountSlider.Value = _config.ParticleCount;
-        ParticleCountTextBox.Text = _config.ParticleCount.ToString();
-        SeedTextBox.Text = _config.RandomSeed.ToString();
-        SimWidthTextBox.Text = _config.SimulationWidth.ToString();
-        SimHeightTextBox.Text = _config.SimulationHeight.ToString();
-        MaxParticlesSlider.Value = _config.MaxParticles;
-        MaxParticlesTextBox.Text = _config.MaxParticles.ToString();
-
-        // Physics Parameters
-        GravitySlider.Value = _config.GravitationalConstant;
-        GravityTextBox.Text = _config.GravitationalConstant.ToString();
-        DampingSlider.Value = _config.DampingFactor;
-        DampingTextBox.Text = _config.DampingFactor.ToString();
-        RestitutionSlider.Value = _config.RestitutionCoefficient;
-        RestitutionTextBox.Text = _config.RestitutionCoefficient.ToString();
-
-        // Particle Ranges
-        MinMassSlider.Value = _config.MinMass;
-        MinMassTextBox.Text = _config.MinMass.ToString();
-        MaxMassSlider.Value = _config.MaxMass;
-        MaxMassTextBox.Text = _config.MaxMass.ToString();
-        MinRadiusSlider.Value = _config.MinRadius;
-        MinRadiusTextBox.Text = _config.MinRadius.ToString();
-        MaxRadiusSlider.Value = _config.MaxRadius;
-        MaxRadiusTextBox.Text = _config.MaxRadius.ToString();
-        MaxVelocitySlider.Value = _config.MaxInitialVelocity;
-        MaxVelocityTextBox.Text = _config.MaxInitialVelocity.ToString();
-
-        // Physics Toggles
-        UseGravityCheckBox.IsChecked = _config.UseGravity;
-        UseCollisionsCheckBox.IsChecked = _config.UseCollisions;
-        UseBoundariesCheckBox.IsChecked = _config.UseBoundaries;
-        UseDampingCheckBox.IsChecked = _config.UseDamping;
-        UseSpatialPartitioningCheckBox.IsChecked = _config.UseSpatialPartitioning;
-
-        // Ability Toggles
-        UseAbilitiesCheckBox.IsChecked = _config.UseAbilities;
-        UseEatingCheckBox.IsChecked = _config.UseEating;
-        UseSplittingCheckBox.IsChecked = _config.UseSplitting;
-        UseReproductionCheckBox.IsChecked = _config.UseReproduction;
-        UsePhasingCheckBox.IsChecked = _config.UsePhasing;
-        UseChaseCheckBox.IsChecked = _config.UseChase;
-        UseFleeCheckBox.IsChecked = _config.UseFlee;
-
-        // Energy Parameters
-        BaseEnergySlider.Value = _config.BaseEnergyCapacity;
-        BaseEnergyTextBox.Text = _config.BaseEnergyCapacity.ToString();
-        PassiveDrainSlider.Value = _config.PassiveEnergyDrain;
-        PassiveDrainTextBox.Text = _config.PassiveEnergyDrain.ToString();
-        EatingGainSlider.Value = _config.EatingEnergyGain;
-        EatingGainTextBox.Text = _config.EatingEnergyGain.ToString();
-        SizeRatioSlider.Value = _config.SizeRatioForEating;
-        SizeRatioTextBox.Text = _config.SizeRatioForEating.ToString();
-        VisionRangeSlider.Value = _config.VisionRangeMultiplier;
-        VisionRangeTextBox.Text = _config.VisionRangeMultiplier.ToString();
-        HungerThresholdSlider.Value = _config.HungerThreshold;
-        HungerThresholdTextBox.Text = _config.HungerThreshold.ToString();
-
-        // Chase/Flee Parameters
-        ChaseForceSlider.Value = _config.ChaseForce;
-        ChaseForceTextBox.Text = _config.ChaseForce.ToString();
-        FleeForceSlider.Value = _config.FleeForce;
-        FleeForceTextBox.Text = _config.FleeForce.ToString();
-        ChaseEnergyCostSlider.Value = _config.ChaseEnergyCost;
-        ChaseEnergyCostTextBox.Text = _config.ChaseEnergyCost.ToString();
-        FleeEnergyCostSlider.Value = _config.FleeEnergyCost;
-        FleeEnergyCostTextBox.Text = _config.FleeEnergyCost.ToString();
-
-        // Splitting Parameters
-        SplittingEnergyCostTextBox.Text = _config.SplittingEnergyCost.ToString();
-        SplittingCooldownSlider.Value = _config.SplittingCooldown;
-        SplittingCooldownTextBox.Text = _config.SplittingCooldown.ToString();
-        SplittingSeparationTextBox.Text = _config.SplittingSeparationForce.ToString();
-
-        // Reproduction Parameters
-        ReproductionEnergyCostTextBox.Text = _config.ReproductionEnergyCost.ToString();
-        ReproductionCooldownSlider.Value = _config.ReproductionCooldown;
-        ReproductionCooldownTextBox.Text = _config.ReproductionCooldown.ToString();
-        ReproductionMassTransferTextBox.Text = _config.ReproductionMassTransfer.ToString();
-        ReproductionEnergyTransferTextBox.Text = _config.ReproductionEnergyTransfer.ToString();
-
-        // Phasing Parameters
-        PhasingEnergyCostTextBox.Text = _config.PhasingEnergyCost.ToString();
-        PhasingCooldownSlider.Value = _config.PhasingCooldown;
-        PhasingCooldownTextBox.Text = _config.PhasingCooldown.ToString();
-        PhasingDurationSlider.Value = _config.PhasingDuration;
-        PhasingDurationTextBox.Text = _config.PhasingDuration.ToString();
-
-        // Other Ability Cooldowns
-        EatingCooldownSlider.Value = _config.EatingCooldown;
-        EatingCooldownTextBox.Text = _config.EatingCooldown.ToString();
-        ChaseCooldownSlider.Value = _config.ChaseCooldown;
-        ChaseCooldownTextBox.Text = _config.ChaseCooldown.ToString();
-        FleeCooldownSlider.Value = _config.FleeCooldown;
-        FleeCooldownTextBox.Text = _config.FleeCooldown.ToString();
-        SpeedBurstCooldownSlider.Value = _config.SpeedBurstCooldown;
-        SpeedBurstCooldownTextBox.Text = _config.SpeedBurstCooldown.ToString();
-
-        // Ability Probabilities
-        EatingProbSlider.Value = _config.EatingProbability;
-        EatingProbTextBox.Text = _config.EatingProbability.ToString();
-        SplittingProbSlider.Value = _config.SplittingProbability;
-        SplittingProbTextBox.Text = _config.SplittingProbability.ToString();
-        ReproductionProbSlider.Value = _config.ReproductionProbability;
-        ReproductionProbTextBox.Text = _config.ReproductionProbability.ToString();
-        PhasingProbSlider.Value = _config.PhasingProbability;
-        PhasingProbTextBox.Text = _config.PhasingProbability.ToString();
-        ChaseProbSlider.Value = _config.ChaseProbability;
-        ChaseProbTextBox.Text = _config.ChaseProbability.ToString();
-        FleeProbSlider.Value = _config.FleeProbability;
-        FleeProbTextBox.Text = _config.FleeProbability.ToString();
-
-        // Type Distribution
-        PredatorProbSlider.Value = _config.PredatorProbability;
-        PredatorProbTextBox.Text = _config.PredatorProbability.ToString();
-        HerbivoreProbSlider.Value = _config.HerbivoreProbability;
-        HerbivoreProbTextBox.Text = _config.HerbivoreProbability.ToString();
-        SocialProbSlider.Value = _config.SocialProbability;
-        SocialProbTextBox.Text = _config.SocialProbability.ToString();
-        SolitaryProbSlider.Value = _config.SolitaryProbability;
-        SolitaryProbTextBox.Text = _config.SolitaryProbability.ToString();
-        NeutralProbSlider.Value = _config.NeutralProbability;
-        NeutralProbTextBox.Text = _config.NeutralProbability.ToString();
+        _configBinder?.PopulateUIFromConfig();
     }
 
     private void PresetComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
