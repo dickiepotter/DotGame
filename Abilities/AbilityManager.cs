@@ -32,6 +32,12 @@ public class AbilityManager
         // Drain passive energy
         DrainPassiveEnergy(particles, context.DeltaTime);
 
+        // Process energy-mass conversion
+        ProcessEnergyMassConversion(particles, context.DeltaTime);
+
+        // Update dynamic movement speed multipliers
+        UpdateMovementSpeed(particles);
+
         // Update particle colors based on current energy/abilities
         UpdateColors(particles);
 
@@ -79,6 +85,16 @@ public class AbilityManager
         {
             if (!particle.HasAbilities) continue;
 
+            // Apply ambient energy gain (encourages movement and survival)
+            if (_config.UseAmbientEnergy)
+            {
+                double ambientGain = _config.AmbientEnergyGainRate * deltaTime;
+                particle.Abilities.Energy = Math.Min(
+                    particle.Abilities.MaxEnergy,
+                    particle.Abilities.Energy + ambientGain
+                );
+            }
+
             // Larger particles drain more energy (surface area ~ mass^(2/3))
             // This creates natural size balance - bigger isn't always better
             double drainMultiplier = Math.Pow(particle.Mass, 0.66);
@@ -88,6 +104,92 @@ public class AbilityManager
             // Ensure energy doesn't go negative
             if (particle.Abilities.Energy < 0)
                 particle.Abilities.Energy = 0;
+        }
+    }
+
+    private void ProcessEnergyMassConversion(List<Particle> particles, double deltaTime)
+    {
+        foreach (var particle in particles)
+        {
+            if (!particle.HasAbilities) continue;
+
+            var abilities = particle.Abilities;
+            double energyPercent = particle.EnergyPercentage;
+
+            // Energy to Mass: Convert excess energy to mass when abundant
+            if (energyPercent > abilities.EnergyToMassThreshold)
+            {
+                double energyToConvert = _config.EnergyToMassConversionRate * deltaTime;
+                double actualConversion = Math.Min(energyToConvert, abilities.Energy - (abilities.MaxEnergy * abilities.EnergyToMassThreshold));
+
+                if (actualConversion > 0)
+                {
+                    abilities.Energy -= actualConversion;
+                    double massGain = actualConversion * 0.1; // Conversion rate: 10:1 energy to mass
+                    particle.Mass += massGain;
+
+                    // Update radius based on new mass
+                    particle.Radius = Math.Sqrt(particle.Mass / (particle.Mass - massGain)) * particle.Radius;
+
+                    // Update max energy based on new mass
+                    abilities.MaxEnergy = particle.Mass * (_config.BaseEnergyCapacity / 10.0);
+                }
+            }
+            // Mass to Energy: Expend mass when energy is critically low
+            else if (energyPercent < abilities.MassToEnergyThreshold && particle.Mass > _config.MinParticleMass)
+            {
+                double massToConvert = _config.MassToEnergyConversionRate * deltaTime;
+                double availableMass = particle.Mass - _config.MinParticleMass;
+                double actualConversion = Math.Min(massToConvert, availableMass);
+
+                if (actualConversion > 0)
+                {
+                    double oldMass = particle.Mass;
+                    particle.Mass -= actualConversion;
+                    double energyGain = actualConversion * 10.0; // Conversion rate: 1:10 mass to energy
+
+                    // Update radius based on new mass
+                    particle.Radius = Math.Sqrt(particle.Mass / oldMass) * particle.Radius;
+
+                    // Update max energy based on new mass
+                    abilities.MaxEnergy = particle.Mass * (_config.BaseEnergyCapacity / 10.0);
+
+                    // Add energy (clamped to max)
+                    abilities.Energy = Math.Min(abilities.MaxEnergy, abilities.Energy + energyGain);
+                }
+            }
+        }
+    }
+
+    private void UpdateMovementSpeed(List<Particle> particles)
+    {
+        foreach (var particle in particles)
+        {
+            if (!particle.HasAbilities) continue;
+
+            var abilities = particle.Abilities;
+            double energyPercent = particle.EnergyPercentage;
+
+            // Increase movement speed when energy is abundant
+            if (energyPercent > abilities.EnergyAbundanceThreshold)
+            {
+                double excessEnergy = energyPercent - abilities.EnergyAbundanceThreshold;
+                double targetMultiplier = 1.0 + (excessEnergy / (1.0 - abilities.EnergyAbundanceThreshold)) * (_config.MovementSpeedMultiplierMax - 1.0);
+                abilities.MovementSpeedMultiplier = Math.Clamp(targetMultiplier, 1.0, _config.MovementSpeedMultiplierMax);
+            }
+            // Decrease movement speed when energy is low (conservation mode)
+            else if (energyPercent < abilities.EnergyConservationThreshold)
+            {
+                double energyDeficit = abilities.EnergyConservationThreshold - energyPercent;
+                double targetMultiplier = 1.0 - (energyDeficit / abilities.EnergyConservationThreshold) * (1.0 - _config.MovementSpeedMultiplierMin);
+                abilities.MovementSpeedMultiplier = Math.Clamp(targetMultiplier, _config.MovementSpeedMultiplierMin, 1.0);
+            }
+            // Normal movement speed in between thresholds
+            else
+            {
+                // Smoothly transition back to 1.0
+                abilities.MovementSpeedMultiplier = 1.0;
+            }
         }
     }
 
@@ -152,6 +254,17 @@ public class AbilityManager
                 {
                     abilities.IsCamouflaged = false;
                     abilities.CurrentState = AbilityState.Idle;
+                }
+            }
+
+            // Update birth animation
+            if (abilities.IsBirthing)
+            {
+                abilities.BirthTimeRemaining -= deltaTime;
+                if (abilities.BirthTimeRemaining <= 0)
+                {
+                    abilities.IsBirthing = false;
+                    abilities.ParentParticleId = null;
                 }
             }
         }

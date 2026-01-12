@@ -97,11 +97,17 @@ public class PhysicsEngine
             // Store previous position for potential use
             particle.PreviousPosition = particle.Position;
 
-            // Apply speed multiplier if speed boost is active
+            // Apply speed multipliers (both speed boost and energy-based)
             float velocityMultiplier = 1.0f;
-            if (particle.HasAbilities && particle.Abilities.IsSpeedBoosted)
+            if (particle.HasAbilities)
             {
-                velocityMultiplier = 2.0f; // Double speed when boosted
+                // Speed boost ability (temporary 2x speed)
+                if (particle.Abilities.IsSpeedBoosted)
+                {
+                    velocityMultiplier = 2.0f;
+                }
+                // Energy-based dynamic speed multiplier (stacks with speed boost)
+                velocityMultiplier *= (float)particle.Abilities.MovementSpeedMultiplier;
             }
 
             // Clamp velocity to prevent extreme speeds
@@ -114,7 +120,7 @@ public class PhysicsEngine
 
             // Semi-implicit Euler integration
             // Velocity has already been updated by forces
-            // Now update position based on velocity (with speed boost if active)
+            // Now update position based on velocity (with all multipliers applied)
             particle.Position += particle.Velocity * velocityMultiplier * dt;
         }
     }

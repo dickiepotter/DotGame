@@ -38,24 +38,27 @@ public class EatingAbility : IAbility
         if (distance > particle.Radius + prey.Radius)
             return;
 
-        // Transfer mass and energy
+        // Transfer mass and energy using configured percentages
         double oldMass = particle.Mass;
-        particle.Mass += prey.Mass;
+        double massGain = prey.Mass * _config.EatingMassTransfer;
+        particle.Mass += massGain;
 
         // Update radius based on new mass (area proportional to mass)
         particle.Radius = Math.Sqrt(particle.Mass / oldMass) * particle.Radius;
 
         if (particle.HasAbilities && prey.HasAbilities)
         {
-            // Gain energy from prey
-            double energyGain = prey.Abilities.Energy * _config.EatingEnergyGain;
+            // Gain energy from prey (high percentage)
+            double energyGain = prey.Abilities.Energy * _config.EatingEnergyTransfer;
+
+            // Update max energy based on new mass first
+            particle.Abilities.MaxEnergy = particle.Mass * (_config.BaseEnergyCapacity / 10.0);
+
+            // Add energy gain to current energy, clamped to max
             particle.Abilities.Energy = Math.Min(
                 particle.Abilities.MaxEnergy,
                 particle.Abilities.Energy + energyGain
             );
-
-            // Update max energy based on new mass
-            particle.Abilities.MaxEnergy = particle.Mass * (_config.BaseEnergyCapacity / 10.0);
 
             // Inherit random abilities from prey (10% chance per ability)
             InheritAbilities(particle, prey);
@@ -100,6 +103,10 @@ public class EatingAbility : IAbility
         {
             if (other.Id == particle.Id) continue;
             if (!other.IsAlive) continue;
+
+            // Cannot eat particles that are being born
+            if (other.HasAbilities && other.Abilities.IsBirthing)
+                continue;
 
             // Size check: predator must be significantly larger (1.5x+)
             if (particle.Radius < other.Radius * _config.SizeRatioForEating)

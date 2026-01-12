@@ -42,6 +42,21 @@ public static class ConfigurationPresets
             GravitationalConstant = 150.0,
             RestitutionCoefficient = 0.9, // Very bouncy
 
+            // Energy-Mass Conversion (aggressive conversion rates)
+            EnergyToMassConversionRate = 0.15,
+            MassToEnergyConversionRate = 0.08,
+            MovementSpeedMultiplierMax = 2.5,
+            MovementSpeedMultiplierMin = 0.6,
+
+            // Eating transfers (high values for chaos)
+            EatingMassTransfer = 0.9,
+            EatingEnergyTransfer = 0.95,
+
+            // Reproduction (wide random ranges)
+            ReproductionMassTransferMin = 0.15,
+            ReproductionMassTransferMax = 0.45,
+            SplittingOffspringEnergyPercentage = 0.9,
+
             // Balanced type distribution
             PredatorProbability = 0.3,
             HerbivoreProbability = 0.3,
@@ -85,6 +100,24 @@ public static class ConfigurationPresets
             GravitationalConstant = 200.0,
             RestitutionCoefficient = 0.6,
 
+            // Energy-Mass Conversion (survival mode - frequent mass-to-energy conversion)
+            EnergyToMassConversionRate = 0.05, // Low conversion to mass
+            MassToEnergyConversionRate = 0.1, // High conversion to energy when desperate
+            MassToEnergyThresholdMin = 0.1, // Higher threshold = more desperate conversion
+            MassToEnergyThresholdMax = 0.2,
+            MinParticleMass = 0.3, // Lower minimum before death
+            MovementSpeedMultiplierMax = 1.5, // Less speed variance
+            MovementSpeedMultiplierMin = 0.3, // Very slow when low energy
+
+            // Eating transfers (lower values for survival challenge)
+            EatingMassTransfer = 0.75,
+            EatingEnergyTransfer = 0.8,
+
+            // Reproduction (narrow ranges, expensive)
+            ReproductionMassTransferMin = 0.25,
+            ReproductionMassTransferMax = 0.35,
+            SplittingOffspringEnergyPercentage = 0.6,
+
             // Predator heavy
             PredatorProbability = 0.6,
             HerbivoreProbability = 0.2,
@@ -109,6 +142,8 @@ public static class ConfigurationPresets
             BaseEnergyCapacity = 200.0,
             PassiveEnergyDrain = 0.2, // Very low drain
             EatingEnergyGain = 0.9,
+            UseAmbientEnergy = true,
+            AmbientEnergyGainRate = 0.8, // Higher ambient gain
 
             // No eating - focus on reproduction and movement
             UseAbilities = true,
@@ -129,6 +164,25 @@ public static class ConfigurationPresets
             GravitationalConstant = 50.0,
             DampingFactor = 0.98, // More damping
             RestitutionCoefficient = 0.7,
+
+            // Energy-Mass Conversion (peaceful mode - frequent energy-to-mass conversion)
+            EnergyToMassConversionRate = 0.12, // Higher conversion to mass
+            MassToEnergyConversionRate = 0.03, // Lower mass-to-energy (rarely needed)
+            EnergyToMassThresholdMin = 0.75, // Lower threshold = more frequent conversion
+            EnergyToMassThresholdMax = 0.9,
+            MovementSpeedMultiplierMax = 2.0,
+            MovementSpeedMultiplierMin = 0.7, // Not too slow
+
+            // Eating transfers (N/A since eating is disabled, but set defaults)
+            EatingMassTransfer = 0.85,
+            EatingEnergyTransfer = 0.9,
+
+            // Reproduction (generous ranges)
+            ReproductionMassTransferMin = 0.2,
+            ReproductionMassTransferMax = 0.4,
+            ReproductionEnergyTransferMin = 0.4,
+            ReproductionEnergyTransferMaxPercent = 0.7,
+            SplittingOffspringEnergyPercentage = 0.85,
 
             // Herbivore and social heavy
             PredatorProbability = 0.0,

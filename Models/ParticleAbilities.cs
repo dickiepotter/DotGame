@@ -113,11 +113,24 @@ public class ParticleAbilities
     public bool IsCamouflaged { get; set; }
     public double CamouflageTimeRemaining { get; set; }
 
+    // Birth/Clone animation
+    public bool IsBirthing { get; set; }
+    public double BirthTimeRemaining { get; set; }
+    public int? ParentParticleId { get; set; }
+
+    // Energy-Mass Conversion Thresholds (individual per particle)
+    public double EnergyToMassThreshold { get; set; } // When energy > this %, convert to mass
+    public double MassToEnergyThreshold { get; set; } // When energy < this %, expend mass
+    public double EnergyAbundanceThreshold { get; set; } // When energy > this %, increase movement
+    public double EnergyConservationThreshold { get; set; } // When energy < this %, decrease movement
+    public double MovementSpeedMultiplier { get; set; } // Dynamic movement speed modifier (0.5 to 2.0)
+
     public ParticleAbilities()
     {
         Cooldowns = new Dictionary<AbilityType, CooldownTimer>();
         CurrentState = AbilityState.Idle;
         Generation = 0;
+        MovementSpeedMultiplier = 1.0; // Default normal speed
     }
 
     public bool HasAbility(AbilitySet ability)

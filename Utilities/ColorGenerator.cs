@@ -82,13 +82,17 @@ public static class ColorGenerator
             b = (b + 128) / 2;
         }
 
-        // Dim based on energy level
+        // Apply energy gradient: bright = high energy, dark = low energy
+        // Use a more visible gradient range (0.5 to 1.0) for better visual feedback
         double energyFactor = abilities.Energy / abilities.MaxEnergy;
-        energyFactor = Math.Max(0.4, energyFactor); // Don't go too dark
+        energyFactor = Math.Clamp(energyFactor, 0, 1);
 
-        r = (int)(r * energyFactor);
-        g = (int)(g * energyFactor);
-        b = (int)(b * energyFactor);
+        // Map 0-100% energy to 50-100% brightness for visibility
+        double brightnessFactor = 0.5 + (energyFactor * 0.5);
+
+        r = (int)(r * brightnessFactor);
+        g = (int)(g * brightnessFactor);
+        b = (int)(b * brightnessFactor);
 
         return Color.FromRgb((byte)r, (byte)g, (byte)b);
     }

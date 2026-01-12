@@ -165,6 +165,25 @@ public class SimulationManager
             CurrentState = AbilityState.Idle
         };
 
+        // Initialize random thresholds for this particle
+        abilities.EnergyToMassThreshold = random.NextDouble() *
+            (_config.EnergyToMassThresholdMax - _config.EnergyToMassThresholdMin) +
+            _config.EnergyToMassThresholdMin;
+
+        abilities.MassToEnergyThreshold = random.NextDouble() *
+            (_config.MassToEnergyThresholdMax - _config.MassToEnergyThresholdMin) +
+            _config.MassToEnergyThresholdMin;
+
+        abilities.EnergyAbundanceThreshold = random.NextDouble() *
+            (_config.EnergyAbundanceThresholdMax - _config.EnergyAbundanceThresholdMin) +
+            _config.EnergyAbundanceThresholdMin;
+
+        abilities.EnergyConservationThreshold = random.NextDouble() *
+            (_config.EnergyConservationThresholdMax - _config.EnergyConservationThresholdMin) +
+            _config.EnergyConservationThresholdMin;
+
+        abilities.MovementSpeedMultiplier = 1.0; // Start at normal speed
+
         // Randomly assign abilities based on probabilities
         if (random.NextDouble() < _config.EatingProbability)
             abilities.Abilities |= AbilitySet.Eating;
@@ -219,10 +238,10 @@ public class SimulationManager
             abilities.InitializeCooldown(AbilityType.Eating, 0.5);
 
         if (abilities.HasAbility(AbilitySet.Splitting))
-            abilities.InitializeCooldown(AbilityType.Splitting, 5.0);
+            abilities.InitializeCooldown(AbilityType.Splitting, _config.SplittingCooldown);
 
         if (abilities.HasAbility(AbilitySet.Reproduction))
-            abilities.InitializeCooldown(AbilityType.Reproduction, 8.0);
+            abilities.InitializeCooldown(AbilityType.Reproduction, _config.ReproductionCooldown);
 
         if (abilities.HasAbility(AbilitySet.Phasing))
             abilities.InitializeCooldown(AbilityType.Phasing, 10.0);

@@ -47,11 +47,13 @@ public class SplittingAbility : IAbility
         Vector2 originalPosition = particle.Position;
         Vector2 originalVelocity = particle.Velocity;
 
-        // Halve the original particle
+        // Halve the original particle mass
         particle.Mass = originalMass / 2.0;
         particle.Radius = originalRadius / Math.Sqrt(2.0); // Maintain density
-        particle.Abilities.Energy = originalEnergy / 2.0;
         particle.Abilities.MaxEnergy = particle.Mass * (_config.BaseEnergyCapacity / 10.0);
+
+        // Parent keeps half energy (original behavior for parent)
+        particle.Abilities.Energy = originalEnergy / 2.0;
 
         // Clamp energy to new max
         if (particle.Abilities.Energy > particle.Abilities.MaxEnergy)
@@ -71,6 +73,11 @@ public class SplittingAbility : IAbility
 
         // Clone abilities
         offspring.Abilities = CloneAbilities(particle.Abilities, offspring.Mass);
+
+        // Mark offspring as birthing (invulnerable during animation)
+        offspring.Abilities.IsBirthing = true;
+        offspring.Abilities.BirthTimeRemaining = _config.BirthAnimationDuration;
+        offspring.Abilities.ParentParticleId = particle.Id;
 
         // Update colors based on abilities (they may differ slightly due to energy)
         particle.Color = Utilities.ColorGenerator.GetColorForAbilities(particle.Abilities);
@@ -110,7 +117,6 @@ public class SplittingAbility : IAbility
     {
         var clone = new ParticleAbilities
         {
-            Energy = source.Energy / 2.0,
             MaxEnergy = newMass * (_config.BaseEnergyCapacity / 10.0),
             Type = source.Type,
             Generation = source.Generation + 1,
@@ -119,9 +125,28 @@ public class SplittingAbility : IAbility
             VisionRange = source.VisionRange
         };
 
-        // Clamp energy
-        if (clone.Energy > clone.MaxEnergy)
-            clone.Energy = clone.MaxEnergy;
+        // Offspring gets fresh energy (percentage of max energy)
+        clone.Energy = clone.MaxEnergy * _config.SplittingOffspringEnergyPercentage;
+
+        // Inherit thresholds with random variance
+        var random = Random.Shared;
+        double variance = _config.ThresholdInheritanceVariance;
+
+        clone.EnergyToMassThreshold = Math.Clamp(
+            source.EnergyToMassThreshold + (random.NextDouble() * 2 - 1) * variance,
+            _config.EnergyToMassThresholdMin, _config.EnergyToMassThresholdMax);
+
+        clone.MassToEnergyThreshold = Math.Clamp(
+            source.MassToEnergyThreshold + (random.NextDouble() * 2 - 1) * variance,
+            _config.MassToEnergyThresholdMin, _config.MassToEnergyThresholdMax);
+
+        clone.EnergyAbundanceThreshold = Math.Clamp(
+            source.EnergyAbundanceThreshold + (random.NextDouble() * 2 - 1) * variance,
+            _config.EnergyAbundanceThresholdMin, _config.EnergyAbundanceThresholdMax);
+
+        clone.EnergyConservationThreshold = Math.Clamp(
+            source.EnergyConservationThreshold + (random.NextDouble() * 2 - 1) * variance,
+            _config.EnergyConservationThresholdMin, _config.EnergyConservationThresholdMax);
 
         // Clone cooldowns
         clone.Cooldowns = new System.Collections.Generic.Dictionary<AbilityType, CooldownTimer>();

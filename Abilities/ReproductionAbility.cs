@@ -25,8 +25,8 @@ public class ReproductionAbility : IAbility
     {
         if (!particle.HasAbilities) return false;
 
-        // Can only reproduce if energy is high (>80%)
-        if (particle.EnergyPercentage < 0.8) return false;
+        // Can only reproduce if energy is sufficient (>60%)
+        if (particle.EnergyPercentage < 0.6) return false;
 
         // Must have enough mass to give to offspring
         double minMass = _config.MinMass;
@@ -53,11 +53,27 @@ public class ReproductionAbility : IAbility
         // Store original values
         double originalMass = particle.Mass;
         double originalRadius = particle.Radius;
+        double originalEnergy = particle.Abilities.Energy;
         Vector2 originalPosition = particle.Position;
         Vector2 originalVelocity = particle.Velocity;
 
-        // Calculate mass transfer
-        double massToGive = originalMass * _config.ReproductionMassTransfer;
+        // Calculate random mass transfer (between min and max percentage)
+        double massTransferPercent = _random.NextDouble(
+            _config.ReproductionMassTransferMin,
+            _config.ReproductionMassTransferMax);
+        double massToGive = originalMass * massTransferPercent;
+
+        // Calculate random energy transfer (between min and max percentage)
+        double energyTransferPercent = _random.NextDouble(
+            _config.ReproductionEnergyTransferMin,
+            _config.ReproductionEnergyTransferMaxPercent);
+        double energyToGive = originalEnergy * energyTransferPercent;
+
+        // Ensure child is smaller than parent (enforce size constraint)
+        double maxOffspringMass = originalMass * _config.ReproductionChildMaxSizeRatio;
+        if (massToGive > maxOffspringMass)
+            massToGive = maxOffspringMass;
+
         double parentNewMass = originalMass - massToGive;
         double offspringMass = massToGive;
 
@@ -65,6 +81,9 @@ public class ReproductionAbility : IAbility
         particle.Mass = parentNewMass;
         particle.Radius = originalRadius * Math.Sqrt(parentNewMass / originalMass);
         particle.Abilities.MaxEnergy = parentNewMass * (_config.BaseEnergyCapacity / 10.0);
+
+        // Update parent energy (loses the energy given to child)
+        particle.Abilities.Energy = originalEnergy - energyToGive;
 
         // Clamp parent energy to new max
         if (particle.Abilities.Energy > particle.Abilities.MaxEnergy)
@@ -85,6 +104,11 @@ public class ReproductionAbility : IAbility
 
         // Inherit abilities from parent (with some randomness)
         offspring.Abilities = InheritAbilities(particle.Abilities, offspringMass);
+
+        // Mark offspring as birthing (invulnerable during animation)
+        offspring.Abilities.IsBirthing = true;
+        offspring.Abilities.BirthTimeRemaining = _config.BirthAnimationDuration;
+        offspring.Abilities.ParentParticleId = particle.Id;
 
         // Update colors based on abilities (offspring may have different abilities)
         particle.Color = Utilities.ColorGenerator.GetColorForAbilities(particle.Abilities);
@@ -132,10 +156,32 @@ public class ReproductionAbility : IAbility
             VisionRange = 0
         };
 
-        // Offspring gets 50% of parent's energy (scaled to mass)
-        offspring.Energy = parent.Energy * _config.ReproductionEnergyTransfer;
-        if (offspring.Energy > offspring.MaxEnergy)
-            offspring.Energy = offspring.MaxEnergy;
+        // Calculate energy for offspring: random percentage of parent's energy + random percentage of parent's mass converted to energy
+        double baseEnergyTransfer = _random.NextDouble(
+            _config.ReproductionEnergyTransferMin,
+            _config.ReproductionEnergyTransferMaxPercent) * parent.Energy;
+
+        // Cap energy at offspring's max energy
+        offspring.Energy = Math.Min(baseEnergyTransfer, offspring.MaxEnergy);
+
+        // Inherit thresholds with random variance
+        double variance = _config.ThresholdInheritanceVariance;
+
+        offspring.EnergyToMassThreshold = Math.Clamp(
+            parent.EnergyToMassThreshold + (_random.NextDouble(0, 1) * 2 - 1) * variance,
+            _config.EnergyToMassThresholdMin, _config.EnergyToMassThresholdMax);
+
+        offspring.MassToEnergyThreshold = Math.Clamp(
+            parent.MassToEnergyThreshold + (_random.NextDouble(0, 1) * 2 - 1) * variance,
+            _config.MassToEnergyThresholdMin, _config.MassToEnergyThresholdMax);
+
+        offspring.EnergyAbundanceThreshold = Math.Clamp(
+            parent.EnergyAbundanceThreshold + (_random.NextDouble(0, 1) * 2 - 1) * variance,
+            _config.EnergyAbundanceThresholdMin, _config.EnergyAbundanceThresholdMax);
+
+        offspring.EnergyConservationThreshold = Math.Clamp(
+            parent.EnergyConservationThreshold + (_random.NextDouble(0, 1) * 2 - 1) * variance,
+            _config.EnergyConservationThresholdMin, _config.EnergyConservationThresholdMax);
 
         // Inherit abilities with some randomness (70% chance per ability)
         if (parent.HasAbility(AbilitySet.Eating) && _random.NextDouble(0, 1) < 0.7)
