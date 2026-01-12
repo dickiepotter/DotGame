@@ -18,6 +18,9 @@ public class Particle
     // Store previous position for collision detection optimization if needed
     public Vector2 PreviousPosition { get; set; }
 
+    // Store previous radius to track growth/shrinkage for visual effects
+    public double PreviousRadius { get; set; }
+
     // Ability system (nullable for backward compatibility)
     public ParticleAbilities? Abilities { get; set; }
 

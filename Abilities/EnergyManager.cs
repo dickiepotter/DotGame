@@ -37,8 +37,13 @@ public class EnergyManager
 
             // Larger particles drain more energy (surface area ~ mass^(2/3))
             // This creates natural size balance - bigger isn't always better
-            double baseDrain = _config.PassiveEnergyDrain * Math.Pow(particle.Mass, 0.67);
-            particle.Abilities.Energy -= baseDrain * deltaTime;
+            double drainMultiplier = Math.Pow(particle.Mass, 0.66);
+            double drain = _config.PassiveEnergyDrain * drainMultiplier * deltaTime;
+            particle.Abilities.Energy -= drain;
+
+            // Ensure energy doesn't go negative
+            if (particle.Abilities.Energy < 0)
+                particle.Abilities.Energy = 0;
         }
     }
 
@@ -64,6 +69,21 @@ public class EnergyManager
             {
                 ConvertMassToEnergy(particle, abilities, deltaTime);
             }
+
+            // Gradually sync PreviousRadius to current Radius for visual fade-out
+            if (particle.PreviousRadius != particle.Radius)
+            {
+                double radiusDiff = particle.Radius - particle.PreviousRadius;
+                double syncSpeed = deltaTime * 2.0; // Sync over ~0.5 seconds
+                if (Math.Abs(radiusDiff) < 0.1)
+                {
+                    particle.PreviousRadius = particle.Radius;
+                }
+                else
+                {
+                    particle.PreviousRadius += radiusDiff * syncSpeed;
+                }
+            }
         }
     }
 
@@ -81,6 +101,9 @@ public class EnergyManager
             abilities.Energy -= actualConversion;
             double massGain = actualConversion * 0.1; // Conversion rate: 10:1 energy to mass
             particle.Mass += massGain;
+
+            // Store previous radius for growth visualization
+            particle.PreviousRadius = particle.Radius;
 
             // Update radius based on new mass
             particle.Radius = Math.Sqrt(particle.Mass / (particle.Mass - massGain)) * particle.Radius;
@@ -104,6 +127,9 @@ public class EnergyManager
             double oldMass = particle.Mass;
             particle.Mass -= actualConversion;
             double energyGain = actualConversion * 10.0; // Conversion rate: 1:10 mass to energy
+
+            // Store previous radius for shrinkage visualization
+            particle.PreviousRadius = particle.Radius;
 
             // Update radius based on new mass
             particle.Radius = Math.Sqrt(particle.Mass / oldMass) * particle.Radius;

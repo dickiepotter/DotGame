@@ -67,6 +67,8 @@ public class ParticleRenderer
         _energyBarRenderer.Clear();
         _trailRenderer.Clear();
         _visionConeRenderer.Clear();
+        _explosionRenderer.Clear();
+        _birthAnimationRenderer.Clear();
 
         // Create grid if enabled
         if (ShowGrid)
@@ -117,6 +119,22 @@ public class ParticleRenderer
         if (deltaTime > 0)
         {
             _birthAnimationRenderer.DetectAndCreateBirthAnimations(particles);
+        }
+
+        // Get current particle IDs
+        var currentParticleIds = new HashSet<int>(particles.Select(p => p.Id));
+
+        // Remove visual elements for particles that no longer exist
+        var elementsToRemove = _visualElements.Keys.Where(id => !currentParticleIds.Contains(id)).ToList();
+        foreach (var id in elementsToRemove)
+        {
+            if (_visualElements.TryGetValue(id, out var ellipse))
+            {
+                _canvas.Children.Remove(ellipse);
+                _visualElements.Remove(id);
+            }
+            _energyBarRenderer.RemoveEnergyBar(id);
+            _trailRenderer.RemoveTrail(id);
         }
 
         // Render each particle
@@ -200,6 +218,30 @@ public class ParticleRenderer
         ellipse.Height = renderRadius * 2;
         Canvas.SetLeft(ellipse, renderPosition.X - renderRadius);
         Canvas.SetTop(ellipse, renderPosition.Y - renderRadius);
+
+        // Add visual effect for growth/shrinkage
+        double radiusDiff = particle.Radius - particle.PreviousRadius;
+        if (Math.Abs(radiusDiff) > 0.1)
+        {
+            if (radiusDiff > 0)
+            {
+                // Growing - green/cyan glow
+                ellipse.Stroke = Brushes.Cyan;
+                ellipse.StrokeThickness = 3;
+            }
+            else
+            {
+                // Shrinking - red/orange glow
+                ellipse.Stroke = Brushes.OrangeRed;
+                ellipse.StrokeThickness = 3;
+            }
+        }
+        else
+        {
+            // Normal state - thin black outline
+            ellipse.Stroke = Brushes.Black;
+            ellipse.StrokeThickness = 1;
+        }
 
         // Update trail
         if (ShowTrails)
