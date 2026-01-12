@@ -351,20 +351,16 @@ public class AbilityManager
             context.ParticlesToRemove.Add(dead.Id);
         }
 
-        // Create explosions for all particles being removed
+        // Create explosions ONLY for particles that died from energy depletion (not eaten particles)
         if (context.Renderer != null)
         {
-            foreach (var particleId in context.ParticlesToRemove)
+            foreach (var dead in deadParticles)
             {
-                var particle = particles.FirstOrDefault(p => p.Id == particleId);
-                if (particle != null)
-                {
-                    context.Renderer.AddExplosion(particle);
-                }
+                context.Renderer.AddExplosion(dead);
             }
         }
 
-        // Remove particles marked for removal (eaten, etc.)
+        // Remove particles marked for removal (eaten, energy death, etc.)
         particles.RemoveAll(p => context.ParticlesToRemove.Contains(p.Id));
 
         // Add new particles (from splitting, reproduction)

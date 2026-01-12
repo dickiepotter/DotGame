@@ -235,7 +235,7 @@ public class SimulationManager
     private void InitializeCooldowns(ParticleAbilities abilities)
     {
         if (abilities.HasAbility(AbilitySet.Eating))
-            abilities.InitializeCooldown(AbilityType.Eating, 0.5);
+            abilities.InitializeCooldown(AbilityType.Eating, _config.EatingCooldown);
 
         if (abilities.HasAbility(AbilitySet.Splitting))
             abilities.InitializeCooldown(AbilityType.Splitting, _config.SplittingCooldown);
@@ -244,10 +244,16 @@ public class SimulationManager
             abilities.InitializeCooldown(AbilityType.Reproduction, _config.ReproductionCooldown);
 
         if (abilities.HasAbility(AbilitySet.Phasing))
-            abilities.InitializeCooldown(AbilityType.Phasing, 10.0);
+            abilities.InitializeCooldown(AbilityType.Phasing, _config.PhasingCooldown);
 
         if (abilities.HasAbility(AbilitySet.SpeedBurst))
-            abilities.InitializeCooldown(AbilityType.SpeedBurst, 7.0);
+            abilities.InitializeCooldown(AbilityType.SpeedBurst, _config.SpeedBurstCooldown);
+
+        if (abilities.HasAbility(AbilitySet.Chase))
+            abilities.InitializeCooldown(AbilityType.Chase, _config.ChaseCooldown);
+
+        if (abilities.HasAbility(AbilitySet.Flee))
+            abilities.InitializeCooldown(AbilityType.Flee, _config.FleeCooldown);
     }
 
     // Find a particle at or near the specified position

@@ -228,6 +228,19 @@ public partial class MainWindow : Window
         if (double.TryParse(PhasingDurationTextBox.Text, out double phasingDuration))
             _config.PhasingDuration = phasingDuration;
 
+        // Other Ability Cooldowns
+        if (double.TryParse(EatingCooldownTextBox.Text, out double eatingCooldown))
+            _config.EatingCooldown = eatingCooldown;
+
+        if (double.TryParse(ChaseCooldownTextBox.Text, out double chaseCooldown))
+            _config.ChaseCooldown = chaseCooldown;
+
+        if (double.TryParse(FleeCooldownTextBox.Text, out double fleeCooldown))
+            _config.FleeCooldown = fleeCooldown;
+
+        if (double.TryParse(SpeedBurstCooldownTextBox.Text, out double speedBurstCooldown))
+            _config.SpeedBurstCooldown = speedBurstCooldown;
+
         // Ability Probabilities
         if (double.TryParse(EatingProbTextBox.Text, out double eatingProb))
             _config.EatingProbability = eatingProb;
@@ -685,6 +698,16 @@ public partial class MainWindow : Window
         PhasingDurationSlider.Value = _config.PhasingDuration;
         PhasingDurationTextBox.Text = _config.PhasingDuration.ToString();
 
+        // Other Ability Cooldowns
+        EatingCooldownSlider.Value = _config.EatingCooldown;
+        EatingCooldownTextBox.Text = _config.EatingCooldown.ToString();
+        ChaseCooldownSlider.Value = _config.ChaseCooldown;
+        ChaseCooldownTextBox.Text = _config.ChaseCooldown.ToString();
+        FleeCooldownSlider.Value = _config.FleeCooldown;
+        FleeCooldownTextBox.Text = _config.FleeCooldown.ToString();
+        SpeedBurstCooldownSlider.Value = _config.SpeedBurstCooldown;
+        SpeedBurstCooldownTextBox.Text = _config.SpeedBurstCooldown.ToString();
+
         // Ability Probabilities
         EatingProbSlider.Value = _config.EatingProbability;
         EatingProbTextBox.Text = _config.EatingProbability.ToString();
@@ -763,8 +786,12 @@ public partial class MainWindow : Window
                 "SplittingCooldownSlider" => "F0",
                 "ReproductionCooldownSlider" => "F0",
                 "PhasingCooldownSlider" => "F0",
+                "SpeedBurstCooldownSlider" => "F0",
                 // High precision decimals
                 "DampingSlider" => "F3",
+                "EatingCooldownSlider" => "F1",
+                "ChaseCooldownSlider" => "F1",
+                "FleeCooldownSlider" => "F1",
                 // Standard decimals
                 _ => "F2"
             };

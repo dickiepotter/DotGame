@@ -64,6 +64,7 @@ public class ParticleRenderer
         _trailPolylines.Clear();
         _energyBars.Clear();
         _gridLines.Clear();
+        _visionConeEllipse = null; // Reset vision cone so it can be recreated
 
         // Create grid if enabled
         if (ShowGrid)

@@ -607,6 +607,50 @@
                                     <TextBox x:Name="PhasingDurationTextBox" Grid.Column="1" Text="2.0" Margin="5,0,0,0" VerticalContentAlignment="Center"/>
                                 </Grid>
 
+                                <!-- Eating Cooldown -->
+                                <TextBlock Text="Eating Cooldown (seconds):" Margin="0,8,0,2"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="60"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Slider x:Name="EatingCooldownSlider" Minimum="0" Maximum="5" Value="0.5" TickFrequency="0.1" ValueChanged="Slider_ValueChanged"/>
+                                    <TextBox x:Name="EatingCooldownTextBox" Grid.Column="1" Text="0.5" Margin="5,0,0,0" VerticalContentAlignment="Center"/>
+                                </Grid>
+
+                                <!-- Chase Cooldown -->
+                                <TextBlock Text="Chase Cooldown (seconds):" Margin="0,8,0,2"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="60"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Slider x:Name="ChaseCooldownSlider" Minimum="0" Maximum="10" Value="0" TickFrequency="0.5" ValueChanged="Slider_ValueChanged"/>
+                                    <TextBox x:Name="ChaseCooldownTextBox" Grid.Column="1" Text="0.0" Margin="5,0,0,0" VerticalContentAlignment="Center"/>
+                                </Grid>
+
+                                <!-- Flee Cooldown -->
+                                <TextBlock Text="Flee Cooldown (seconds):" Margin="0,8,0,2"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="60"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Slider x:Name="FleeCooldownSlider" Minimum="0" Maximum="10" Value="0" TickFrequency="0.5" ValueChanged="Slider_ValueChanged"/>
+                                    <TextBox x:Name="FleeCooldownTextBox" Grid.Column="1" Text="0.0" Margin="5,0,0,0" VerticalContentAlignment="Center"/>
+                                </Grid>
+
+                                <!-- Speed Burst Cooldown -->
+                                <TextBlock Text="Speed Burst Cooldown (seconds):" Margin="0,8,0,2"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="60"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Slider x:Name="SpeedBurstCooldownSlider" Minimum="1" Maximum="20" Value="7" TickFrequency="1" ValueChanged="Slider_ValueChanged"/>
+                                    <TextBox x:Name="SpeedBurstCooldownTextBox" Grid.Column="1" Text="7.0" Margin="5,0,0,0" VerticalContentAlignment="Center"/>
+                                </Grid>
+
                                 <!-- Legacy Cost Fields (kept for compatibility) -->
                                 <TextBlock Text="Note: Energy costs now scale with particle mass" FontStyle="Italic" FontSize="10" Margin="0,20,0,5" TextWrapping="Wrap"/>
                                 <Grid Visibility="Collapsed">

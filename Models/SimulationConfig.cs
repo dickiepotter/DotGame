@@ -82,6 +82,12 @@ public class SimulationConfig
     public double PhasingCooldown { get; set; } = 10.0; // Seconds
     public double PhasingDuration { get; set; } = 2.0; // Seconds of phasing
 
+    // Other ability cooldowns
+    public double EatingCooldown { get; set; } = 0.5; // Seconds
+    public double ChaseCooldown { get; set; } = 0.0; // Seconds (0 = no cooldown)
+    public double FleeCooldown { get; set; } = 0.0; // Seconds (0 = no cooldown)
+    public double SpeedBurstCooldown { get; set; } = 7.0; // Seconds
+
     // Splitting percentage-based costs
     public double SplittingEnergyCostPercent { get; set; } = 0.6; // 60% of max energy
 

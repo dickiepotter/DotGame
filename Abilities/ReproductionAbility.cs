@@ -206,16 +206,25 @@ public class ReproductionAbility : IAbility
         offspring.Cooldowns = new System.Collections.Generic.Dictionary<AbilityType, CooldownTimer>();
 
         if (offspring.HasAbility(AbilitySet.Eating))
-            offspring.InitializeCooldown(AbilityType.Eating, 0.5);
+            offspring.InitializeCooldown(AbilityType.Eating, _config.EatingCooldown);
 
         if (offspring.HasAbility(AbilitySet.Splitting))
-            offspring.InitializeCooldown(AbilityType.Splitting, 5.0);
+            offspring.InitializeCooldown(AbilityType.Splitting, _config.SplittingCooldown);
 
         if (offspring.HasAbility(AbilitySet.Reproduction))
-            offspring.InitializeCooldown(AbilityType.Reproduction, 8.0);
+            offspring.InitializeCooldown(AbilityType.Reproduction, _config.ReproductionCooldown);
 
         if (offspring.HasAbility(AbilitySet.Phasing))
-            offspring.InitializeCooldown(AbilityType.Phasing, 10.0);
+            offspring.InitializeCooldown(AbilityType.Phasing, _config.PhasingCooldown);
+
+        if (offspring.HasAbility(AbilitySet.SpeedBurst))
+            offspring.InitializeCooldown(AbilityType.SpeedBurst, _config.SpeedBurstCooldown);
+
+        if (offspring.HasAbility(AbilitySet.Chase))
+            offspring.InitializeCooldown(AbilityType.Chase, _config.ChaseCooldown);
+
+        if (offspring.HasAbility(AbilitySet.Flee))
+            offspring.InitializeCooldown(AbilityType.Flee, _config.FleeCooldown);
 
         // Calculate initial vision range
         offspring.VisionRange = offspringMass * _config.VisionRangeMultiplier;
