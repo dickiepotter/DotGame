@@ -19,7 +19,11 @@
                         MouseLeftButtonDown="SimulationCanvas_MouseLeftButtonDown"
                         MouseRightButtonDown="SimulationCanvas_MouseRightButtonDown"
                         MouseMove="SimulationCanvas_MouseMove"
-                        MouseRightButtonUp="SimulationCanvas_MouseRightButtonUp"/>
+                        MouseRightButtonUp="SimulationCanvas_MouseRightButtonUp"
+                        TouchDown="SimulationCanvas_TouchDown"
+                        TouchMove="SimulationCanvas_TouchMove"
+                        TouchUp="SimulationCanvas_TouchUp"
+                        IsManipulationEnabled="True"/>
 
                 <!-- Particle Details Tooltip -->
                 <Border x:Name="ParticleTooltip"
@@ -134,7 +138,7 @@
 
                                 <!-- Random Seed -->
                                 <TextBlock Text="Random Seed:" FontWeight="Bold" Margin="0,10,0,2"/>
-                                <TextBox x:Name="SeedTextBox" Text="12345" Height="25"/>
+                                <TextBox x:Name="SeedTextBox" Text="" Height="25" LostFocus="SeedTextBox_LostFocus"/>
 
                                 <!-- Simulation Size (read-only info) -->
                                 <TextBlock Text="Simulation Size:" FontWeight="Bold" Margin="0,10,0,2"/>
@@ -152,12 +156,18 @@
                                     <TextBox x:Name="SimHeightTextBox" Grid.Column="3" Text="600" IsReadOnly="True" Background="LightGray" VerticalContentAlignment="Center"/>
                                 </Grid>
 
-                                <!-- Mouse Controls Info -->
-                                <GroupBox Header="Mouse Controls" Margin="0,15,0,0">
+                                <!-- Controls Info -->
+                                <GroupBox Header="Controls" Margin="0,15,0,0">
                                     <StackPanel>
-                                        <TextBlock Text="• Left Click: Add particle" Margin="0,2"/>
-                                        <TextBlock Text="• Right Click+Drag: Push particle" Margin="0,2"/>
-                                        <TextBlock Text="• Hover: View particle details" Margin="0,2"/>
+                                        <TextBlock Text="Mouse:" FontWeight="Bold" Margin="0,2,0,2"/>
+                                        <TextBlock Text="• Left Click: Add particle" Margin="10,2,0,2"/>
+                                        <TextBlock Text="• Right Click+Drag: Push particle" Margin="10,2,0,2"/>
+                                        <TextBlock Text="• Hover: View particle details" Margin="10,2,0,5"/>
+
+                                        <TextBlock Text="Touch:" FontWeight="Bold" Margin="0,5,0,2"/>
+                                        <TextBlock Text="• Tap empty space: Add particle" Margin="10,2,0,2"/>
+                                        <TextBlock Text="• Touch+Drag particle: Push particle" Margin="10,2,0,2"/>
+                                        <TextBlock Text="• Touch particle: View details" Margin="10,2,0,2"/>
                                     </StackPanel>
                                 </GroupBox>
                             </StackPanel>
@@ -616,6 +626,88 @@
                                     <TextBox x:Name="ReproductionMassTransferTextBox" Grid.Row="4" Text="0.3"/>
                                     <TextBox x:Name="ReproductionEnergyTransferTextBox" Grid.Row="5" Text="0.5"/>
                                 </Grid>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </TabItem>
+
+                    <!-- VISUAL TAB -->
+                    <TabItem Header="Visual">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <StackPanel Margin="10">
+                                <TextBlock Text="Visual Enhancements:" FontWeight="Bold" FontSize="14" Margin="0,5,0,10"/>
+                                <TextBlock Text="Toggle visual feedback features" FontStyle="Italic" FontSize="10" Margin="0,0,0,10" TextWrapping="Wrap"/>
+
+                                <!-- Grid Overlay -->
+                                <CheckBox x:Name="ShowGridCheckBox" Content="Show Grid Overlay" IsChecked="False" Margin="0,5" Checked="VisualToggle_Changed" Unchecked="VisualToggle_Changed"/>
+                                <TextBlock Text="Display a grid to help gauge distances" FontSize="10" Foreground="Gray" Margin="20,0,0,10" TextWrapping="Wrap"/>
+
+                                <!-- Vision Cones -->
+                                <CheckBox x:Name="ShowVisionConesCheckBox" Content="Show Vision Cones on Hover" IsChecked="False" Margin="0,5" Checked="VisualToggle_Changed" Unchecked="VisualToggle_Changed"/>
+                                <TextBlock Text="Display particle vision range when hovering" FontSize="10" Foreground="Gray" Margin="20,0,0,10" TextWrapping="Wrap"/>
+
+                                <!-- Trail Effects -->
+                                <CheckBox x:Name="ShowTrailsCheckBox" Content="Show Particle Trails" IsChecked="False" Margin="0,5" Checked="VisualToggle_Changed" Unchecked="VisualToggle_Changed"/>
+                                <TextBlock Text="Display motion trails behind particles" FontSize="10" Foreground="Gray" Margin="20,0,0,10" TextWrapping="Wrap"/>
+
+                                <!-- Energy Bars -->
+                                <CheckBox x:Name="ShowEnergyBarsCheckBox" Content="Show Energy Bars" IsChecked="True" Margin="0,5" Checked="VisualToggle_Changed" Unchecked="VisualToggle_Changed"/>
+                                <TextBlock Text="Display energy bars above particles" FontSize="10" Foreground="Gray" Margin="20,0,0,10" TextWrapping="Wrap"/>
+
+                                <Separator Margin="0,15"/>
+
+                                <!-- Color Scheme Options -->
+                                <TextBlock Text="Color Scheme:" FontWeight="Bold" FontSize="14" Margin="0,10,0,10"/>
+
+                                <RadioButton x:Name="ColorByTypeRadio" Content="Color by Type + Abilities" IsChecked="True" Margin="0,5" GroupName="ColorScheme" Checked="ColorScheme_Changed"/>
+                                <TextBlock Text="Uses type-based colors with ability tints" FontSize="10" Foreground="Gray" Margin="20,0,0,5" TextWrapping="Wrap"/>
+
+                                <RadioButton x:Name="ColorByMassRadio" Content="Color by Mass" IsChecked="False" Margin="0,8" GroupName="ColorScheme" Checked="ColorScheme_Changed"/>
+                                <TextBlock Text="Red = heavy, Blue = light" FontSize="10" Foreground="Gray" Margin="20,0,0,10" TextWrapping="Wrap"/>
+
+                                <Separator Margin="0,15"/>
+
+                                <!-- Trail Settings -->
+                                <TextBlock Text="Trail Settings:" FontWeight="Bold" FontSize="14" Margin="0,10,0,10"/>
+
+                                <TextBlock Text="Trail Length:" Margin="0,5,0,2"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="60"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Slider x:Name="TrailLengthSlider" Minimum="5" Maximum="50" Value="15" TickFrequency="5" IsSnapToTickEnabled="True" ValueChanged="Slider_ValueChanged"/>
+                                    <TextBox x:Name="TrailLengthTextBox" Grid.Column="1" Text="15" Margin="5,0,0,0" VerticalContentAlignment="Center"/>
+                                </Grid>
+
+                                <Separator Margin="0,15"/>
+
+                                <!-- Info -->
+                                <GroupBox Header="Info" Margin="0,10,0,0">
+                                    <StackPanel>
+                                        <TextBlock Text="Type Colors:" FontWeight="Bold" Margin="0,5,0,5"/>
+                                        <StackPanel Orientation="Horizontal" Margin="0,2">
+                                            <Ellipse Width="12" Height="12" Fill="#C83232" Stroke="Black" StrokeThickness="1" Margin="0,0,5,0"/>
+                                            <TextBlock Text="Predator (Red)" FontSize="10"/>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" Margin="0,2">
+                                            <Ellipse Width="12" Height="12" Fill="#64C864" Stroke="Black" StrokeThickness="1" Margin="0,0,5,0"/>
+                                            <TextBlock Text="Herbivore (Green)" FontSize="10"/>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" Margin="0,2">
+                                            <Ellipse Width="12" Height="12" Fill="#6496E6" Stroke="Black" StrokeThickness="1" Margin="0,0,5,0"/>
+                                            <TextBlock Text="Social (Blue)" FontSize="10"/>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" Margin="0,2">
+                                            <Ellipse Width="12" Height="12" Fill="#B464C8" Stroke="Black" StrokeThickness="1" Margin="0,0,5,0"/>
+                                            <TextBlock Text="Solitary (Purple)" FontSize="10"/>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" Margin="0,2">
+                                            <Ellipse Width="12" Height="12" Fill="#B4B4B4" Stroke="Black" StrokeThickness="1" Margin="0,0,5,0"/>
+                                            <TextBlock Text="Neutral (Gray)" FontSize="10"/>
+                                        </StackPanel>
+                                        <TextBlock Text="Dimness indicates low energy" FontSize="10" FontStyle="Italic" Margin="0,10,0,0"/>
+                                    </StackPanel>
+                                </GroupBox>
                             </StackPanel>
                         </ScrollViewer>
                     </TabItem>

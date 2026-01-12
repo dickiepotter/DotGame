@@ -23,6 +23,15 @@ public partial class MainWindow : Window
     private Vector2 _lastMousePosition;
     private bool _isDragging;
 
+    // Touch interaction state
+    private Particle? _touchedParticle;
+    private Vector2 _lastTouchPosition;
+    private bool _isTouchDragging;
+    private int? _activeTouchId;
+
+    // Track if user has explicitly set a seed value
+    private bool _userSetSeed = false;
+
     public MainWindow()
     {
         InitializeComponent();
@@ -52,6 +61,21 @@ public partial class MainWindow : Window
 
     private void InitializeSimulation()
     {
+        // Generate new random seed if user hasn't explicitly set one
+        if (!_userSetSeed)
+        {
+            _config.RandomSeed = Environment.TickCount;
+            SeedTextBox.Text = _config.RandomSeed.ToString();
+        }
+        else
+        {
+            // Use the user-provided seed
+            if (int.TryParse(SeedTextBox.Text, out int userSeed))
+            {
+                _config.RandomSeed = userSeed;
+            }
+        }
+
         // Update config from UI
         UpdateConfigFromUI();
 
@@ -285,6 +309,7 @@ public partial class MainWindow : Window
 
     private void ResetButton_Click(object sender, RoutedEventArgs e)
     {
+        // Reset will generate a new random seed unless user has set one
         InitializeSimulation();
     }
 
@@ -361,6 +386,9 @@ public partial class MainWindow : Window
             // Show particle details on hover
             var hoveredParticle = _simulationManager.FindParticleAtPosition(currentPosition);
 
+            // Update hovered particle for vision cone display
+            _simulationManager.Renderer.HoveredParticle = hoveredParticle;
+
             if (hoveredParticle != null)
             {
                 ShowParticleTooltip(hoveredParticle, mousePos);
@@ -419,6 +447,7 @@ public partial class MainWindow : Window
             if (particle.Abilities.HasAbility(AbilitySet.Splitting)) abilityList.Add("Splitting");
             if (particle.Abilities.HasAbility(AbilitySet.Reproduction)) abilityList.Add("Reproduction");
             if (particle.Abilities.HasAbility(AbilitySet.Phasing)) abilityList.Add("Phasing");
+            if (particle.Abilities.HasAbility(AbilitySet.SpeedBurst)) abilityList.Add("SpeedBurst");
             if (particle.Abilities.HasAbility(AbilitySet.Chase)) abilityList.Add("Chase");
             if (particle.Abilities.HasAbility(AbilitySet.Flee)) abilityList.Add("Flee");
 
@@ -536,6 +565,9 @@ public partial class MainWindow : Window
                     // Validate loaded configuration
                     _config.ValidateAndClamp();
                     _config.NormalizeTypeProbabilities();
+
+                    // Reset user seed flag when loading settings
+                    _userSetSeed = false;
 
                     PopulateUIFromConfig();
 
@@ -684,6 +716,9 @@ public partial class MainWindow : Window
         // Load the selected preset
         _config = ConfigurationPresets.GetPreset(selectedPreset);
 
+        // Reset user seed flag when loading preset - allow random seeds again
+        _userSetSeed = false;
+
         // Update UI to reflect loaded preset
         PopulateUIFromConfig();
 
@@ -729,6 +764,160 @@ public partial class MainWindow : Window
             };
 
             textBox.Text = slider.Value.ToString(format);
+        }
+    }
+
+    private void VisualToggle_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_simulationManager == null) return;
+
+        // Update visual settings in the renderer
+        var renderer = _simulationManager.Renderer;
+        renderer.ShowGrid = ShowGridCheckBox.IsChecked ?? false;
+        renderer.ShowVisionCones = ShowVisionConesCheckBox.IsChecked ?? false;
+        renderer.ShowTrails = ShowTrailsCheckBox.IsChecked ?? false;
+        renderer.ShowEnergyBars = ShowEnergyBarsCheckBox.IsChecked ?? true;
+        renderer.TrailLength = (int)(TrailLengthSlider?.Value ?? 15);
+
+        // Force a re-render
+        renderer.Render(_simulationManager.Particles);
+    }
+
+    private void ColorScheme_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_simulationManager == null) return;
+
+        bool useTypeColors = ColorByTypeRadio.IsChecked ?? true;
+
+        // Update particle colors based on selected scheme
+        foreach (var particle in _simulationManager.Particles)
+        {
+            if (useTypeColors && particle.HasAbilities)
+            {
+                particle.Color = Utilities.ColorGenerator.GetColorForAbilities(particle.Abilities);
+            }
+            else
+            {
+                particle.Color = Utilities.ColorGenerator.GetColorForMass(
+                    particle.Mass, _config.MinMass, _config.MaxMass);
+            }
+        }
+
+        // Force a re-render
+        _simulationManager.Renderer.Render(_simulationManager.Particles);
+    }
+
+    private void SeedTextBox_LostFocus(object sender, RoutedEventArgs e)
+    {
+        // When user manually edits the seed textbox, mark it as user-set
+        // so that future resets won't generate new random seeds
+        if (!string.IsNullOrWhiteSpace(SeedTextBox.Text) && int.TryParse(SeedTextBox.Text, out _))
+        {
+            _userSetSeed = true;
+        }
+    }
+
+    // Touch event handlers for touch screen support
+    private void SimulationCanvas_TouchDown(object sender, TouchEventArgs e)
+    {
+        if (_simulationManager == null) return;
+
+        // Only handle one touch at a time
+        if (_activeTouchId.HasValue) return;
+
+        // Get touch position relative to canvas
+        var touchPoint = e.GetTouchPoint(SimulationCanvas);
+        var position = new Vector2((float)touchPoint.Position.X, (float)touchPoint.Position.Y);
+
+        // Find particle at this position
+        var particle = _simulationManager.FindParticleAtPosition(position);
+
+        if (particle != null)
+        {
+            // Touching a particle - start drag and show tooltip
+            _touchedParticle = particle;
+            _isTouchDragging = true;
+            _lastTouchPosition = position;
+            _activeTouchId = e.TouchDevice.Id;
+
+            // Show particle details tooltip at touch position
+            ShowParticleTooltip(particle, touchPoint.Position);
+
+            // Capture this touch
+            e.TouchDevice.Capture(SimulationCanvas);
+            e.Handled = true;
+        }
+        else
+        {
+            // Touching empty space - create new particle
+            _simulationManager.AddParticle(position);
+
+            // Update particle count in info
+            if (_simulationManager.Particles != null)
+            {
+                string status = _simulationManager.IsRunning ? "Running" : "Stopped";
+                InfoTextBlock.Text = $"Status: {status}\n" +
+                                    $"Particles: {_simulationManager.Particles.Count}\n" +
+                                    $"Seed: {_config.RandomSeed}";
+            }
+
+            e.Handled = true;
+        }
+    }
+
+    private void SimulationCanvas_TouchMove(object sender, TouchEventArgs e)
+    {
+        if (_simulationManager == null) return;
+
+        // Only handle the active touch
+        if (!_activeTouchId.HasValue || e.TouchDevice.Id != _activeTouchId.Value)
+            return;
+
+        // Get current touch position
+        var touchPoint = e.GetTouchPoint(SimulationCanvas);
+        var currentPosition = new Vector2((float)touchPoint.Position.X, (float)touchPoint.Position.Y);
+
+        // Handle dragging behavior
+        if (_isTouchDragging && _touchedParticle != null)
+        {
+            // Calculate touch movement delta
+            var delta = currentPosition - _lastTouchPosition;
+
+            // Apply impulse based on touch movement
+            // Scale factor controls how much impulse is applied
+            const float impulseFactor = 50.0f;
+            var impulse = delta * impulseFactor;
+
+            _simulationManager.ApplyImpulseToParticle(_touchedParticle, impulse);
+
+            // Update last touch position
+            _lastTouchPosition = currentPosition;
+
+            // Update tooltip position to follow touch
+            ShowParticleTooltip(_touchedParticle, touchPoint.Position);
+
+            e.Handled = true;
+        }
+    }
+
+    private void SimulationCanvas_TouchUp(object sender, TouchEventArgs e)
+    {
+        // Only handle the active touch
+        if (!_activeTouchId.HasValue || e.TouchDevice.Id != _activeTouchId.Value)
+            return;
+
+        if (_isTouchDragging)
+        {
+            _isTouchDragging = false;
+            _touchedParticle = null;
+            _activeTouchId = null;
+
+            // Hide tooltip when touch ends
+            ParticleTooltip.Visibility = Visibility.Collapsed;
+
+            // Release touch capture
+            e.TouchDevice.Capture(null);
+            e.Handled = true;
         }
     }
 }
