@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Linq;
 using System.Numerics;
 using System.Windows;
 using System.Windows.Controls;
@@ -8,35 +10,34 @@ using DotGame.Utilities;
 
 namespace DotGame.Rendering;
 
+/// <summary>
+/// Coordinates all particle rendering using specialized renderer components.
+/// Manages core particle visuals and delegates specialized rendering to focused classes.
+/// </summary>
 public class ParticleRenderer
 {
     private readonly Canvas _canvas;
     private readonly Dictionary<int, Ellipse> _visualElements;
-    private readonly Dictionary<int, Queue<Vector2>> _particleTrails;
-    private readonly List<Polyline> _trailPolylines;
-    private readonly List<ParticleExplosion> _activeExplosions;
-    private readonly Dictionary<ParticleExplosion, List<Ellipse>> _explosionElements;
 
-    // Birth animation tracking
-    private readonly List<ParticleBirth> _activeBirths;
-    private readonly Dictionary<ParticleBirth, List<Ellipse>> _birthElements;
-    private readonly Dictionary<int, ParticleBirth> _particleBirthMap;
-
-    // Grid overlay elements
-    private readonly List<Line> _gridLines;
-
-    // Vision cone element
-    private Ellipse? _visionConeEllipse;
-
-    // Energy bar elements
-    private readonly Dictionary<int, (Rectangle bg, Rectangle fg)> _energyBars;
+    // Specialized renderers
+    private readonly GridRenderer _gridRenderer;
+    private readonly EnergyBarRenderer _energyBarRenderer;
+    private readonly TrailRenderer _trailRenderer;
+    private readonly VisionConeRenderer _visionConeRenderer;
+    private readonly ExplosionRenderer _explosionRenderer;
+    private readonly BirthAnimationRenderer _birthAnimationRenderer;
 
     // Visual settings
     public bool ShowGrid { get; set; }
     public bool ShowVisionCones { get; set; }
     public bool ShowTrails { get; set; }
     public bool ShowEnergyBars { get; set; } = true;
-    public int TrailLength { get; set; } = 15;
+
+    public int TrailLength
+    {
+        get => _trailRenderer.TrailLength;
+        set => _trailRenderer.TrailLength = value;
+    }
 
     // Hovered particle for vision cone
     public Particle? HoveredParticle { get; set; }
@@ -45,575 +46,202 @@ public class ParticleRenderer
     {
         _canvas = canvas;
         _visualElements = new Dictionary<int, Ellipse>();
-        _particleTrails = new Dictionary<int, Queue<Vector2>>();
-        _trailPolylines = new List<Polyline>();
-        _activeExplosions = new List<ParticleExplosion>();
-        _explosionElements = new Dictionary<ParticleExplosion, List<Ellipse>>();
-        _activeBirths = new List<ParticleBirth>();
-        _birthElements = new Dictionary<ParticleBirth, List<Ellipse>>();
-        _particleBirthMap = new Dictionary<int, ParticleBirth>();
-        _gridLines = new List<Line>();
-        _energyBars = new Dictionary<int, (Rectangle, Rectangle)>();
+
+        // Initialize specialized renderers
+        _gridRenderer = new GridRenderer(canvas);
+        _energyBarRenderer = new EnergyBarRenderer(canvas);
+        _trailRenderer = new TrailRenderer(canvas);
+        _visionConeRenderer = new VisionConeRenderer(canvas);
+        _explosionRenderer = new ExplosionRenderer(canvas);
+        _birthAnimationRenderer = new BirthAnimationRenderer(canvas);
     }
 
+    /// <summary>
+    /// Initializes the renderer with a list of particles.
+    /// </summary>
     public void Initialize(List<Particle> particles)
     {
         // Clear existing elements
         _canvas.Children.Clear();
         _visualElements.Clear();
-        _particleTrails.Clear();
-        _trailPolylines.Clear();
-        _energyBars.Clear();
-        _gridLines.Clear();
-        _visionConeEllipse = null; // Reset vision cone so it can be recreated
+        _energyBarRenderer.Clear();
+        _trailRenderer.Clear();
+        _visionConeRenderer.Clear();
 
         // Create grid if enabled
         if (ShowGrid)
         {
-            CreateGrid();
+            _gridRenderer.CreateGrid();
         }
 
-        // Create an Ellipse for each particle
+        // Create visual elements for each particle
         foreach (var particle in particles)
         {
-            var ellipse = new Ellipse
-            {
-                Width = particle.Radius * 2,
-                Height = particle.Radius * 2,
-                Fill = new SolidColorBrush(particle.Color),
-                Stroke = Brushes.Black,
-                StrokeThickness = 1
-            };
-
-            _canvas.Children.Add(ellipse);
-            _visualElements[particle.Id] = ellipse;
-
-            // Initialize trail
-            if (ShowTrails)
-            {
-                _particleTrails[particle.Id] = new Queue<Vector2>();
-            }
-
-            // Initialize energy bar
-            if (ShowEnergyBars && particle.HasAbilities)
-            {
-                CreateEnergyBar(particle);
-            }
+            CreateParticleVisual(particle);
         }
     }
 
-    private void CreateGrid()
+    /// <summary>
+    /// Creates visual elements for a single particle.
+    /// </summary>
+    private void CreateParticleVisual(Particle particle)
     {
-        const double gridSpacing = RenderingConstants.GRID_SPACING;
-        var canvasWidth = _canvas.ActualWidth;
-        var canvasHeight = _canvas.ActualHeight;
-
-        if (canvasWidth == 0 || canvasHeight == 0) return;
-
-        // Vertical lines
-        for (double x = 0; x <= canvasWidth; x += gridSpacing)
+        var ellipse = new Ellipse
         {
-            var line = new Line
-            {
-                X1 = x,
-                Y1 = 0,
-                X2 = x,
-                Y2 = canvasHeight,
-                Stroke = Brushes.LightGray,
-                StrokeThickness = 0.5,
-                Opacity = 0.5
-            };
-            _canvas.Children.Add(line);
-            _gridLines.Add(line);
-            Canvas.SetZIndex(line, -1000); // Behind everything
-        }
-
-        // Horizontal lines
-        for (double y = 0; y <= canvasHeight; y += gridSpacing)
-        {
-            var line = new Line
-            {
-                X1 = 0,
-                Y1 = y,
-                X2 = canvasWidth,
-                Y2 = y,
-                Stroke = Brushes.LightGray,
-                StrokeThickness = 0.5,
-                Opacity = 0.5
-            };
-            _canvas.Children.Add(line);
-            _gridLines.Add(line);
-            Canvas.SetZIndex(line, -1000); // Behind everything
-        }
-    }
-
-    private void CreateEnergyBar(Particle particle)
-    {
-        double barWidth = particle.Radius * 2;
-        double barHeight = RenderingConstants.ENERGY_BAR_HEIGHT;
-
-        // Background (red)
-        var bgBar = new Rectangle
-        {
-            Width = barWidth,
-            Height = barHeight,
-            Fill = Brushes.DarkRed,
+            Width = particle.Radius * 2,
+            Height = particle.Radius * 2,
+            Fill = new SolidColorBrush(particle.Color),
             Stroke = Brushes.Black,
-            StrokeThickness = 0.5
+            StrokeThickness = 1
         };
 
-        // Foreground (green)
-        var fgBar = new Rectangle
+        _canvas.Children.Add(ellipse);
+        _visualElements[particle.Id] = ellipse;
+
+        // Initialize energy bar if needed
+        if (ShowEnergyBars && particle.HasAbilities)
         {
-            Width = barWidth,
-            Height = barHeight,
-            Fill = Brushes.LimeGreen,
-            Stroke = null
-        };
-
-        _canvas.Children.Add(bgBar);
-        _canvas.Children.Add(fgBar);
-        Canvas.SetZIndex(bgBar, 1000); // On top
-        Canvas.SetZIndex(fgBar, 1001); // On top of background
-
-        _energyBars[particle.Id] = (bgBar, fgBar);
+            _energyBarRenderer.CreateEnergyBar(particle);
+        }
     }
 
+    /// <summary>
+    /// Renders all particles and updates animations.
+    /// </summary>
     public void Render(List<Particle> particles, double deltaTime = 0)
     {
         // Update grid visibility
-        if (ShowGrid && _gridLines.Count == 0)
-        {
-            CreateGrid();
-        }
-        else if (!ShowGrid && _gridLines.Count > 0)
-        {
-            foreach (var line in _gridLines)
-            {
-                _canvas.Children.Remove(line);
-            }
-            _gridLines.Clear();
-        }
+        UpdateGridVisibility();
 
         // Detect new birthing particles and create birth animations
         if (deltaTime > 0)
         {
-            DetectAndCreateBirthAnimations(particles);
+            _birthAnimationRenderer.DetectAndCreateBirthAnimations(particles);
         }
 
-        // Update position and appearance of each particle's visual representation
+        // Render each particle
         foreach (var particle in particles)
         {
-            if (_visualElements.TryGetValue(particle.Id, out var ellipse))
-            {
-                Vector2 renderPosition = particle.Position;
-                double renderRadius = particle.Radius;
-
-                // If particle is birthing, use animated position and size
-                if (particle.HasAbilities && particle.Abilities.IsBirthing &&
-                    _particleBirthMap.TryGetValue(particle.Id, out var birth))
-                {
-                    renderPosition = birth.GetCurrentPosition();
-                    renderRadius = birth.GetCurrentRadius();
-
-                    // Add transparency during birth
-                    double alpha = RenderingConstants.BIRTH_MIN_OPACITY +
-                                  ((RenderingConstants.BIRTH_MAX_OPACITY - RenderingConstants.BIRTH_MIN_OPACITY) * birth.EasedProgress);
-                    byte alphaValue = (byte)(alpha * 255);
-                    ellipse.Fill = new SolidColorBrush(Color.FromArgb(
-                        alphaValue, particle.Color.R, particle.Color.G, particle.Color.B));
-                }
-                else
-                {
-                    // Normal rendering
-                    ellipse.Fill = new SolidColorBrush(particle.Color);
-                }
-
-                // Set position (Canvas.Left and Canvas.Top are for top-left corner)
-                // Subtract radius to center the ellipse on the particle position
-                Canvas.SetLeft(ellipse, renderPosition.X - renderRadius);
-                Canvas.SetTop(ellipse, renderPosition.Y - renderRadius);
-
-                // Update size and color (in case they changed)
-                ellipse.Width = renderRadius * 2;
-                ellipse.Height = renderRadius * 2;
-
-                // Update trail
-                if (ShowTrails)
-                {
-                    UpdateTrail(particle);
-                }
-
-                // Update energy bar
-                if (ShowEnergyBars && particle.HasAbilities)
-                {
-                    UpdateEnergyBar(particle);
-                }
-            }
+            RenderParticle(particle);
         }
 
-        // Remove visual elements for particles that no longer exist
-        var particleIds = new HashSet<int>(particles.Select(p => p.Id));
-        var toRemove = _visualElements.Keys.Where(id => !particleIds.Contains(id)).ToList();
-        foreach (var id in toRemove)
-        {
-            if (_visualElements.TryGetValue(id, out var ellipse))
-            {
-                _canvas.Children.Remove(ellipse);
-                _visualElements.Remove(id);
-            }
-
-            if (_energyBars.TryGetValue(id, out var bars))
-            {
-                _canvas.Children.Remove(bars.bg);
-                _canvas.Children.Remove(bars.fg);
-                _energyBars.Remove(id);
-            }
-
-            _particleTrails.Remove(id);
-        }
-
-        // Render trails
+        // Render trails if enabled
         if (ShowTrails)
         {
-            RenderTrails();
-        }
-        else
-        {
-            ClearTrails();
+            _trailRenderer.RenderTrails();
         }
 
-        // Render vision cone
+        // Render vision cone for hovered particle
         if (ShowVisionCones && HoveredParticle != null)
         {
-            RenderVisionCone(HoveredParticle);
+            _visionConeRenderer.RenderVisionCone(HoveredParticle);
         }
         else
         {
-            HideVisionCone();
+            _visionConeRenderer.HideVisionCone();
         }
 
-        // Update explosions
+        // Update animations
         if (deltaTime > 0)
         {
-            UpdateExplosions(deltaTime);
-            UpdateBirthAnimations(deltaTime);
+            _explosionRenderer.UpdateExplosions(deltaTime);
+            _birthAnimationRenderer.UpdateBirthAnimations(deltaTime);
         }
     }
 
-    private void UpdateTrail(Particle particle)
+    /// <summary>
+    /// Renders a single particle with appropriate effects.
+    /// </summary>
+    private void RenderParticle(Particle particle)
     {
-        if (!_particleTrails.TryGetValue(particle.Id, out var trail))
+        if (!_visualElements.TryGetValue(particle.Id, out var ellipse))
         {
-            trail = new Queue<Vector2>();
-            _particleTrails[particle.Id] = trail;
-        }
-
-        // Add current position
-        trail.Enqueue(particle.Position);
-
-        // Keep only the last N positions
-        while (trail.Count > TrailLength)
-        {
-            trail.Dequeue();
-        }
-    }
-
-    private void RenderTrails()
-    {
-        // Clear existing polylines
-        foreach (var polyline in _trailPolylines)
-        {
-            _canvas.Children.Remove(polyline);
-        }
-        _trailPolylines.Clear();
-
-        // Create new polylines for each trail
-        foreach (var kvp in _particleTrails)
-        {
-            var trail = kvp.Value;
-            if (trail.Count < 2) continue;
-
-            var polyline = new Polyline
-            {
-                Stroke = Brushes.Gray,
-                StrokeThickness = RenderingConstants.TRAIL_LINE_THICKNESS,
-                Opacity = RenderingConstants.TRAIL_OPACITY
-            };
-
-            foreach (var pos in trail)
-            {
-                polyline.Points.Add(new System.Windows.Point(pos.X, pos.Y));
-            }
-
-            _canvas.Children.Add(polyline);
-            Canvas.SetZIndex(polyline, -100); // Behind particles
-            _trailPolylines.Add(polyline);
-        }
-    }
-
-    private void ClearTrails()
-    {
-        foreach (var polyline in _trailPolylines)
-        {
-            _canvas.Children.Remove(polyline);
-        }
-        _trailPolylines.Clear();
-        _particleTrails.Clear();
-    }
-
-    private void RenderVisionCone(Particle particle)
-    {
-        if (!particle.HasAbilities) return;
-
-        if (_visionConeEllipse == null)
-        {
-            _visionConeEllipse = new Ellipse
-            {
-                Stroke = Brushes.Yellow,
-                StrokeThickness = RenderingConstants.VISION_CONE_LINE_THICKNESS,
-                Fill = Brushes.Transparent,
-                Opacity = RenderingConstants.VISION_CONE_OPACITY
-            };
-            _canvas.Children.Add(_visionConeEllipse);
-            Canvas.SetZIndex(_visionConeEllipse, -50); // Behind particles but above trails
-        }
-
-        double range = particle.Abilities.VisionRange;
-        _visionConeEllipse.Width = range * 2;
-        _visionConeEllipse.Height = range * 2;
-        Canvas.SetLeft(_visionConeEllipse, particle.Position.X - range);
-        Canvas.SetTop(_visionConeEllipse, particle.Position.Y - range);
-        _visionConeEllipse.Visibility = Visibility.Visible;
-    }
-
-    private void HideVisionCone()
-    {
-        if (_visionConeEllipse != null)
-        {
-            _visionConeEllipse.Visibility = Visibility.Collapsed;
-        }
-    }
-
-    private void UpdateEnergyBar(Particle particle)
-    {
-        if (!_energyBars.TryGetValue(particle.Id, out var bars))
-        {
-            CreateEnergyBar(particle);
-            if (!_energyBars.TryGetValue(particle.Id, out bars))
+            CreateParticleVisual(particle);
+            if (!_visualElements.TryGetValue(particle.Id, out ellipse))
                 return;
         }
 
-        const double barWidth = RenderingConstants.ENERGY_BAR_WIDTH;
-        const double barHeight = RenderingConstants.ENERGY_BAR_HEIGHT;
-        const double barOffset = RenderingConstants.ENERGY_BAR_OFFSET;
+        Vector2 renderPosition = particle.Position;
+        double renderRadius = particle.Radius;
 
-        // Position above particle
-        double x = particle.Position.X - barWidth / 2;
-        double y = particle.Position.Y - particle.Radius - barOffset;
+        // Apply birth animation if active
+        if (particle.HasAbilities && particle.Abilities.IsBirthing)
+        {
+            var birth = _birthAnimationRenderer.GetBirthAnimation(particle.Id);
+            if (birth != null)
+            {
+                renderPosition = birth.GetCurrentPosition();
+                renderRadius = birth.GetCurrentRadius();
 
-        Canvas.SetLeft(bars.bg, x);
-        Canvas.SetTop(bars.bg, y);
-        Canvas.SetLeft(bars.fg, x);
-        Canvas.SetTop(bars.fg, y);
-
-        // Update foreground width based on energy percentage
-        double energyPercent = particle.Abilities.Energy / particle.Abilities.MaxEnergy;
-        energyPercent = Math.Clamp(energyPercent, 0, 1);
-        bars.fg.Width = barWidth * energyPercent;
-
-        // Color code based on energy thresholds
-        if (energyPercent > RenderingConstants.ENERGY_HIGH_THRESHOLD)
-            bars.fg.Fill = Brushes.LimeGreen;
-        else if (energyPercent > RenderingConstants.ENERGY_MEDIUM_THRESHOLD)
-            bars.fg.Fill = Brushes.Yellow;
+                // Add transparency during birth
+                double alpha = RenderingConstants.BIRTH_MIN_OPACITY +
+                              ((RenderingConstants.BIRTH_MAX_OPACITY - RenderingConstants.BIRTH_MIN_OPACITY) * birth.EasedProgress);
+                byte alphaValue = (byte)(alpha * 255);
+                ellipse.Fill = new SolidColorBrush(Color.FromArgb(
+                    alphaValue, particle.Color.R, particle.Color.G, particle.Color.B));
+            }
+        }
         else
-            bars.fg.Fill = Brushes.OrangeRed;
+        {
+            // Normal rendering
+            ellipse.Fill = new SolidColorBrush(particle.Color);
+        }
+
+        // Update phasing transparency
+        if (particle.HasAbilities && particle.Abilities.IsPhasing)
+        {
+            var color = particle.Color;
+            ellipse.Fill = new SolidColorBrush(Color.FromArgb(
+                RenderingConstants.PHASING_OPACITY, color.R, color.G, color.B));
+        }
+
+        // Update size and position
+        ellipse.Width = renderRadius * 2;
+        ellipse.Height = renderRadius * 2;
+        Canvas.SetLeft(ellipse, renderPosition.X - renderRadius);
+        Canvas.SetTop(ellipse, renderPosition.Y - renderRadius);
+
+        // Update trail
+        if (ShowTrails)
+        {
+            _trailRenderer.UpdateTrail(particle);
+        }
+
+        // Update energy bar
+        if (ShowEnergyBars && particle.HasAbilities)
+        {
+            _energyBarRenderer.UpdateEnergyBar(particle);
+        }
     }
 
+    /// <summary>
+    /// Updates grid visibility based on settings.
+    /// </summary>
+    private void UpdateGridVisibility()
+    {
+        if (ShowGrid)
+        {
+            _gridRenderer.CreateGrid();
+        }
+        else
+        {
+            _gridRenderer.ClearGrid();
+        }
+    }
+
+    /// <summary>
+    /// Adds an explosion animation for a particle.
+    /// </summary>
     public void AddExplosion(Particle particle)
     {
-        var explosion = new ParticleExplosion(particle);
-        _activeExplosions.Add(explosion);
-
-        // Create visual elements for explosion fragments
-        var fragmentElements = new List<Ellipse>();
-        foreach (var fragment in explosion.Fragments)
-        {
-            var ellipse = new Ellipse
-            {
-                Width = fragment.Size * 2,
-                Height = fragment.Size * 2,
-                Fill = new SolidColorBrush(fragment.Color),
-                Stroke = null
-            };
-
-            Canvas.SetLeft(ellipse, fragment.Position.X - fragment.Size);
-            Canvas.SetTop(ellipse, fragment.Position.Y - fragment.Size);
-
-            _canvas.Children.Add(ellipse);
-            fragmentElements.Add(ellipse);
-        }
-
-        _explosionElements[explosion] = fragmentElements;
+        _explosionRenderer.AddExplosion(particle);
     }
 
-    private void UpdateExplosions(double deltaTime)
-    {
-        var completedExplosions = new List<ParticleExplosion>();
-
-        foreach (var explosion in _activeExplosions)
-        {
-            explosion.Update(deltaTime);
-
-            if (explosion.IsComplete)
-            {
-                completedExplosions.Add(explosion);
-            }
-            else
-            {
-                // Update fragment visual positions and fade out
-                if (_explosionElements.TryGetValue(explosion, out var elements))
-                {
-                    double alpha = 1.0 - explosion.Progress;
-                    byte alphaValue = (byte)(alpha * 255);
-
-                    for (int i = 0; i < explosion.Fragments.Count && i < elements.Count; i++)
-                    {
-                        var fragment = explosion.Fragments[i];
-                        var ellipse = elements[i];
-
-                        Canvas.SetLeft(ellipse, fragment.Position.X - fragment.Size);
-                        Canvas.SetTop(ellipse, fragment.Position.Y - fragment.Size);
-
-                        // Fade out
-                        var color = fragment.Color;
-                        ellipse.Fill = new SolidColorBrush(Color.FromArgb(
-                            alphaValue, color.R, color.G, color.B));
-                    }
-                }
-            }
-        }
-
-        // Remove completed explosions
-        foreach (var explosion in completedExplosions)
-        {
-            if (_explosionElements.TryGetValue(explosion, out var elements))
-            {
-                foreach (var ellipse in elements)
-                {
-                    _canvas.Children.Remove(ellipse);
-                }
-                _explosionElements.Remove(explosion);
-            }
-            _activeExplosions.Remove(explosion);
-        }
-    }
-
-    private void DetectAndCreateBirthAnimations(List<Particle> particles)
-    {
-        foreach (var particle in particles)
-        {
-            // Check if this particle is birthing and doesn't have an animation yet
-            if (particle.HasAbilities && particle.Abilities.IsBirthing &&
-                !_particleBirthMap.ContainsKey(particle.Id))
-            {
-                // Find parent position if available
-                Vector2? parentPosition = null;
-                if (particle.Abilities.ParentParticleId.HasValue)
-                {
-                    var parent = particles.FirstOrDefault(p => p.Id == particle.Abilities.ParentParticleId.Value);
-                    if (parent != null)
-                    {
-                        parentPosition = parent.Position;
-                    }
-                }
-
-                AddBirthAnimation(particle, parentPosition);
-            }
-        }
-    }
-
+    /// <summary>
+    /// Adds a birth animation for a particle.
+    /// </summary>
     public void AddBirthAnimation(Particle particle, Vector2? parentPosition = null)
     {
-        var birth = new ParticleBirth(particle, parentPosition);
-        _activeBirths.Add(birth);
-        _particleBirthMap[particle.Id] = birth;
-
-        // Create visual elements for birth fragments
-        var fragmentElements = new List<Ellipse>();
-        foreach (var fragment in birth.Fragments)
-        {
-            var ellipse = new Ellipse
-            {
-                Width = fragment.Size * 2,
-                Height = fragment.Size * 2,
-                Fill = new SolidColorBrush(Color.FromArgb(128, fragment.Color.R, fragment.Color.G, fragment.Color.B)),
-                Stroke = null
-            };
-
-            Canvas.SetLeft(ellipse, fragment.StartPosition.X - fragment.Size);
-            Canvas.SetTop(ellipse, fragment.StartPosition.Y - fragment.Size);
-
-            _canvas.Children.Add(ellipse);
-            Canvas.SetZIndex(ellipse, 100); // Above normal particles
-            fragmentElements.Add(ellipse);
-        }
-
-        _birthElements[birth] = fragmentElements;
-    }
-
-    private void UpdateBirthAnimations(double deltaTime)
-    {
-        var completedBirths = new List<ParticleBirth>();
-
-        foreach (var birth in _activeBirths)
-        {
-            birth.Update(deltaTime);
-
-            if (birth.IsComplete)
-            {
-                completedBirths.Add(birth);
-            }
-            else
-            {
-                // Update fragment visual positions and fade in
-                if (_birthElements.TryGetValue(birth, out var elements))
-                {
-                    double alpha = 0.8 * (1.0 - birth.Progress);
-                    byte alphaValue = (byte)(alpha * 255);
-
-                    for (int i = 0; i < birth.Fragments.Count && i < elements.Count; i++)
-                    {
-                        var fragment = birth.Fragments[i];
-                        var ellipse = elements[i];
-
-                        Vector2 currentPos = fragment.GetCurrentPosition(birth.EasedProgress);
-                        Canvas.SetLeft(ellipse, currentPos.X - fragment.Size);
-                        Canvas.SetTop(ellipse, currentPos.Y - fragment.Size);
-
-                        // Fade out fragments as they converge
-                        var color = fragment.Color;
-                        ellipse.Fill = new SolidColorBrush(Color.FromArgb(
-                            alphaValue, color.R, color.G, color.B));
-                    }
-                }
-            }
-        }
-
-        // Remove completed birth animations
-        foreach (var birth in completedBirths)
-        {
-            if (_birthElements.TryGetValue(birth, out var elements))
-            {
-                foreach (var ellipse in elements)
-                {
-                    _canvas.Children.Remove(ellipse);
-                }
-                _birthElements.Remove(birth);
-            }
-            _activeBirths.Remove(birth);
-            _particleBirthMap.Remove(birth.ParticleId);
-        }
+        _birthAnimationRenderer.AddBirthAnimation(particle, parentPosition);
     }
 }
