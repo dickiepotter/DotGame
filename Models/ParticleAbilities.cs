@@ -99,24 +99,113 @@ public class ParticleAbilities
     public Dictionary<AbilityType, CooldownTimer> Cooldowns { get; set; }
     public AbilityState CurrentState { get; set; }
 
-    // Phasing state
-    public bool IsPhasing { get; set; }
-    public double PhasingTimeRemaining { get; set; }
-
     // Targeting
     public int? TargetParticleId { get; set; }
 
-    // Speed Burst
-    public bool IsSpeedBoosted { get; set; }
-    public double SpeedBoostTimeRemaining { get; set; }
+    // Temporary States (using TimedState pattern)
+    public TimedState PhasingState { get; private set; }
+    public TimedState SpeedBoostState { get; private set; }
+    public TimedState CamouflageState { get; private set; }
+    public TimedState BirthState { get; private set; }
 
-    // Camouflage
-    public bool IsCamouflaged { get; set; }
-    public double CamouflageTimeRemaining { get; set; }
+    // Compatibility properties (delegates to TimedState)
+    public bool IsPhasing
+    {
+        get => PhasingState.IsActive;
+        set
+        {
+            if (value && !PhasingState.IsActive)
+                PhasingState.Activate(0); // Activate with 0 duration if set directly
+            else if (!value)
+                PhasingState.Deactivate();
+        }
+    }
 
-    // Birth/Clone animation
-    public bool IsBirthing { get; set; }
-    public double BirthTimeRemaining { get; set; }
+    public double PhasingTimeRemaining
+    {
+        get => PhasingState.TimeRemaining;
+        set
+        {
+            if (value > 0)
+                PhasingState.Activate(value);
+            else
+                PhasingState.Deactivate();
+        }
+    }
+
+    public bool IsSpeedBoosted
+    {
+        get => SpeedBoostState.IsActive;
+        set
+        {
+            if (value && !SpeedBoostState.IsActive)
+                SpeedBoostState.Activate(0);
+            else if (!value)
+                SpeedBoostState.Deactivate();
+        }
+    }
+
+    public double SpeedBoostTimeRemaining
+    {
+        get => SpeedBoostState.TimeRemaining;
+        set
+        {
+            if (value > 0)
+                SpeedBoostState.Activate(value);
+            else
+                SpeedBoostState.Deactivate();
+        }
+    }
+
+    public bool IsCamouflaged
+    {
+        get => CamouflageState.IsActive;
+        set
+        {
+            if (value && !CamouflageState.IsActive)
+                CamouflageState.Activate(0);
+            else if (!value)
+                CamouflageState.Deactivate();
+        }
+    }
+
+    public double CamouflageTimeRemaining
+    {
+        get => CamouflageState.TimeRemaining;
+        set
+        {
+            if (value > 0)
+                CamouflageState.Activate(value);
+            else
+                CamouflageState.Deactivate();
+        }
+    }
+
+    public bool IsBirthing
+    {
+        get => BirthState.IsActive;
+        set
+        {
+            if (value && !BirthState.IsActive)
+                BirthState.Activate(0);
+            else if (!value)
+                BirthState.Deactivate();
+        }
+    }
+
+    public double BirthTimeRemaining
+    {
+        get => BirthState.TimeRemaining;
+        set
+        {
+            if (value > 0)
+                BirthState.Activate(value);
+            else
+                BirthState.Deactivate();
+        }
+    }
+
+    // Birth parent tracking
     public int? ParentParticleId { get; set; }
 
     // Energy-Mass Conversion Thresholds (individual per particle)
@@ -132,6 +221,12 @@ public class ParticleAbilities
         CurrentState = AbilityState.Idle;
         Generation = 0;
         MovementSpeedMultiplier = 1.0; // Default normal speed
+
+        // Initialize timed states
+        PhasingState = new TimedState();
+        SpeedBoostState = new TimedState();
+        CamouflageState = new TimedState();
+        BirthState = new TimedState();
     }
 
     public bool HasAbility(AbilitySet ability)

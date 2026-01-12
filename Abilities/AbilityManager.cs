@@ -225,48 +225,26 @@ public class AbilityManager
 
             var abilities = particle.Abilities;
 
-            // Update phasing
-            if (abilities.IsPhasing)
+            // Update phasing - restore idle state when expired
+            if (abilities.PhasingState.Update(deltaTime))
             {
-                abilities.PhasingTimeRemaining -= deltaTime;
-                if (abilities.PhasingTimeRemaining <= 0)
-                {
-                    abilities.IsPhasing = false;
-                    abilities.CurrentState = AbilityState.Idle;
-                    // Color will be restored automatically by UpdateColors
-                }
+                abilities.CurrentState = AbilityState.Idle;
+                // Color will be restored automatically by UpdateColors
             }
 
-            // Update speed boost
-            if (abilities.IsSpeedBoosted)
+            // Update speed boost - automatically handles expiration
+            abilities.SpeedBoostState.Update(deltaTime);
+
+            // Update camouflage - restore idle state when expired
+            if (abilities.CamouflageState.Update(deltaTime))
             {
-                abilities.SpeedBoostTimeRemaining -= deltaTime;
-                if (abilities.SpeedBoostTimeRemaining <= 0)
-                {
-                    abilities.IsSpeedBoosted = false;
-                }
+                abilities.CurrentState = AbilityState.Idle;
             }
 
-            // Update camouflage
-            if (abilities.IsCamouflaged)
+            // Update birth animation - clear parent reference when expired
+            if (abilities.BirthState.Update(deltaTime))
             {
-                abilities.CamouflageTimeRemaining -= deltaTime;
-                if (abilities.CamouflageTimeRemaining <= 0)
-                {
-                    abilities.IsCamouflaged = false;
-                    abilities.CurrentState = AbilityState.Idle;
-                }
-            }
-
-            // Update birth animation
-            if (abilities.IsBirthing)
-            {
-                abilities.BirthTimeRemaining -= deltaTime;
-                if (abilities.BirthTimeRemaining <= 0)
-                {
-                    abilities.IsBirthing = false;
-                    abilities.ParentParticleId = null;
-                }
+                abilities.ParentParticleId = null;
             }
         }
     }
