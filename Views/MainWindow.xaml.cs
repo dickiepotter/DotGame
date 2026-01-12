@@ -94,6 +94,12 @@ public partial class MainWindow : Window
         _simulationManager = new SimulationManager(SimulationCanvas, _config);
         _simulationManager.Initialize();
 
+        // Apply visual settings from UI to renderer
+        ApplyVisualSettingsToRenderer();
+
+        // Apply color scheme from UI
+        ApplyColorSchemeToParticles();
+
         UpdateInfo();
     }
 
@@ -784,6 +790,46 @@ public partial class MainWindow : Window
     }
 
     private void ColorScheme_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_simulationManager == null) return;
+
+        bool useTypeColors = ColorByTypeRadio.IsChecked ?? true;
+
+        // Update particle colors based on selected scheme
+        foreach (var particle in _simulationManager.Particles)
+        {
+            if (useTypeColors && particle.HasAbilities)
+            {
+                particle.Color = Utilities.ColorGenerator.GetColorForAbilities(particle.Abilities);
+            }
+            else
+            {
+                particle.Color = Utilities.ColorGenerator.GetColorForMass(
+                    particle.Mass, _config.MinMass, _config.MaxMass);
+            }
+        }
+
+        // Force a re-render
+        _simulationManager.Renderer.Render(_simulationManager.Particles);
+    }
+
+    private void ApplyVisualSettingsToRenderer()
+    {
+        if (_simulationManager == null) return;
+
+        // Apply all visual settings from UI to renderer
+        var renderer = _simulationManager.Renderer;
+        renderer.ShowGrid = ShowGridCheckBox.IsChecked ?? false;
+        renderer.ShowVisionCones = ShowVisionConesCheckBox.IsChecked ?? false;
+        renderer.ShowTrails = ShowTrailsCheckBox.IsChecked ?? false;
+        renderer.ShowEnergyBars = ShowEnergyBarsCheckBox.IsChecked ?? true;
+        renderer.TrailLength = (int)(TrailLengthSlider?.Value ?? 15);
+
+        // Force a re-render to apply settings
+        renderer.Render(_simulationManager.Particles);
+    }
+
+    private void ApplyColorSchemeToParticles()
     {
         if (_simulationManager == null) return;
 
