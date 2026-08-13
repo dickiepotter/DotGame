@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using DotGame.Models;
+using DotGame.Utilities;
 
 namespace DotGame.Abilities;
 
@@ -17,7 +18,7 @@ public class AbilityManager
     private readonly EnergyManager _energyManager;
     private readonly AbilityExecutor _executor;
 
-    public AbilityManager(SimulationConfig config)
+    public AbilityManager(SimulationConfig config, ParticleIdGenerator idGenerator)
     {
         _config = config;
 
@@ -26,12 +27,17 @@ public class AbilityManager
         _energyManager = new EnergyManager(config);
         _executor = new AbilityExecutor(config);
 
+        // One seeded generator shared by every ability. Previously each ability reached for
+        // Random.Shared or `new Random()`, which made runs unreproducible even with a fixed
+        // seed - the headline feature of the simulation.
+        var random = new RandomGenerator(config.SeedFor(SimulationConfig.SeedStream.Abilities));
+
         // Register implemented abilities
-        RegisterAbility(new EatingAbility(config));
+        RegisterAbility(new EatingAbility(config, random));
         RegisterAbility(new ChaseAbility(config));
         RegisterAbility(new FleeAbility(config));
-        RegisterAbility(new SplittingAbility(config));
-        RegisterAbility(new ReproductionAbility(config));
+        RegisterAbility(new SplittingAbility(config, random, idGenerator));
+        RegisterAbility(new ReproductionAbility(config, random, idGenerator));
         RegisterAbility(new PhasingAbility(config));
         RegisterAbility(new SpeedBurstAbility(config));
     }

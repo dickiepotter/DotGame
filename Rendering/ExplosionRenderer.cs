@@ -1,8 +1,9 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Shapes;
 using DotGame.Models;
+using DotGame.Utilities;
 
 namespace DotGame.Rendering;
 
@@ -14,10 +15,22 @@ public class ExplosionRenderer
     private readonly Canvas _canvas;
     private readonly List<ParticleExplosion> _activeExplosions;
     private readonly Dictionary<ParticleExplosion, List<Ellipse>> _explosionElements;
+    private readonly RandomGenerator _random;
 
-    public ExplosionRenderer(Canvas canvas)
+    /// <summary>
+    /// When false the animation state is still tracked but no WPF shapes are created.
+    /// Luminous mode reads <see cref="ActiveExplosions"/> and emits light instead, so the
+    /// hard-edged ellipses would only show through as artefacts.
+    /// </summary>
+    public bool CreateVisuals { get; set; } = true;
+
+    /// <summary>Live explosions, for renderers that draw them themselves.</summary>
+    public IReadOnlyList<ParticleExplosion> ActiveExplosions => _activeExplosions;
+
+    public ExplosionRenderer(Canvas canvas, RandomGenerator random)
     {
         _canvas = canvas;
+        _random = random;
         _activeExplosions = new List<ParticleExplosion>();
         _explosionElements = new Dictionary<ParticleExplosion, List<Ellipse>>();
     }
@@ -27,8 +40,10 @@ public class ExplosionRenderer
     /// </summary>
     public void AddExplosion(Particle particle)
     {
-        var explosion = new ParticleExplosion(particle);
+        var explosion = new ParticleExplosion(particle, _random);
         _activeExplosions.Add(explosion);
+
+        if (!CreateVisuals) return;
 
         // Create visual elements for explosion fragments
         var fragmentElements = new List<Ellipse>();

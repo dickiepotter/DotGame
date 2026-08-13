@@ -39,7 +39,6 @@ public class SimulationConfig
     // Ability parameters
     public double BaseEnergyCapacity { get; set; } = 100.0;
     public double PassiveEnergyDrain { get; set; } = 0.4; // Per second (reduced from 0.5)
-    public double EatingEnergyGain { get; set; } = 0.8; // 80% of prey energy
     public double SizeRatioForEating { get; set; } = 1.25; // Must be 1.25x larger to eat
     public double VisionRangeMultiplier { get; set; } = 5.0; // vision = radius * multiplier
     public double HungerThreshold { get; set; } = 0.3; // Trigger hunting at 30% energy
@@ -51,6 +50,7 @@ public class SimulationConfig
     public double PhasingProbability { get; set; } = 0.2;
     public double ChaseProbability { get; set; } = 0.6;
     public double FleeProbability { get; set; } = 0.5;
+    public double SpeedBurstProbability { get; set; } = 0.4;
 
     // Type distribution
     public double PredatorProbability { get; set; } = 0.3;
@@ -59,25 +59,26 @@ public class SimulationConfig
     public double SolitaryProbability { get; set; } = 0.1;
     public double NeutralProbability { get; set; } = 0.1;
 
-    // Chase/Flee parameters
+    // Chase/Flee parameters.
+    // These are propulsive accelerations (px/s^2) experienced by a particle of average mass.
+    // Actual acceleration is scaled by ReferenceMass/Mass so heavier particles are more
+    // sluggish, which is what gives the size/agility trade-off its teeth.
     public double ChaseForce { get; set; } = 200.0;
     public double FleeForce { get; set; } = 250.0;
     public double ChaseEnergyCost { get; set; } = 0.1; // Per second
     public double FleeEnergyCost { get; set; } = 0.15; // Per second
 
     // Splitting parameters
-    public double SplittingEnergyCost { get; set; } = 50.0; // 50% of current energy
     public double SplittingCooldown { get; set; } = 3.0; // Seconds (reduced from 5.0)
-    public double SplittingSeparationForce { get; set; } = 100.0; // Push apart velocity
+    // Momentum imparted to each half when splitting. Divided by each half's mass, so the
+    // pair's net momentum is unchanged - heavier offspring drift apart more slowly.
+    public double SplittingSeparationForce { get; set; } = 100.0;
 
     // Reproduction parameters
-    public double ReproductionEnergyCost { get; set; } = 40.0; // 40% of current energy
     public double ReproductionCooldown { get; set; } = 5.0; // Seconds (reduced from 8.0)
     public double ReproductionMassTransfer { get; set; } = 0.3; // 30% of parent mass
-    public double ReproductionEnergyTransfer { get; set; } = 0.5; // 50% of parent energy (scaled)
 
     // Phasing parameters
-    public double PhasingEnergyCost { get; set; } = 30.0; // Legacy fixed cost (deprecated)
     public double PhasingEnergyCostPercent { get; set; } = 0.4; // 40% of max energy
     public double PhasingCooldown { get; set; } = 10.0; // Seconds
     public double PhasingDuration { get; set; } = 2.0; // Seconds of phasing
@@ -87,6 +88,7 @@ public class SimulationConfig
     public double ChaseCooldown { get; set; } = 0.0; // Seconds (0 = no cooldown)
     public double FleeCooldown { get; set; } = 0.0; // Seconds (0 = no cooldown)
     public double SpeedBurstCooldown { get; set; } = 7.0; // Seconds
+    public double SpeedBurstEnergyCostPercent { get; set; } = 0.2; // 20% of max energy
 
     // Splitting percentage-based costs
     public double SplittingEnergyCostPercent { get; set; } = 0.6; // 60% of max energy
@@ -121,7 +123,9 @@ public class SimulationConfig
     public double MovementSpeedMultiplierMin { get; set; } = 0.5; // Minimum speed multiplier
 
     // Splitting Energy Parameters
-    public double SplittingOffspringEnergyPercentage { get; set; } = 0.8; // Offspring gets 80% of max energy
+    // Share of the parent's remaining energy pool handed to the offspring. 0.5 is an even
+    // split between two equal halves; the pool is divided, never conjured.
+    public double SplittingOffspringEnergyPercentage { get; set; } = 0.5;
 
     // Reproduction Mass/Energy Transfer Parameters
     public double ReproductionMassTransferMin { get; set; } = 0.2; // Min 20% of parent mass
@@ -132,7 +136,41 @@ public class SimulationConfig
 
     // Eating Mass/Energy Transfer Parameters
     public double EatingMassTransfer { get; set; } = 0.85; // Predator gains 85% of prey mass
-    public double EatingEnergyTransfer { get; set; } = 0.9; // Predator gains 90% of prey energy (replaces EatingEnergyGain)
+    public double EatingEnergyTransfer { get; set; } = 0.9; // Predator gains 90% of prey energy
+
+    /// <summary>
+    /// The mass at which ChaseForce/FleeForce are expressed directly as accelerations.
+    /// Particles heavier than this accelerate proportionally less (a = F/m).
+    /// </summary>
+    public double ReferenceMass => Math.Max(0.1, (MinMass + MaxMass) / 2.0);
+
+    /// <summary>
+    /// Energy capacity for a given mass. Single definition so every particle source agrees.
+    /// </summary>
+    public double EnergyCapacityForMass(double mass) =>
+        mass * (BaseEnergyCapacity / Utilities.GameplayConstants.ENERGY_CAPACITY_REFERENCE_MASS);
+
+    /// <summary>
+    /// Independent random streams derived from the one user-visible seed.
+    ///
+    /// Each consumer gets its own stream so that drawing a number in one place cannot shift
+    /// every subsequent value elsewhere. In particular the visual-effects stream is separate
+    /// from the physics streams, so a headless run and a rendered run of the same seed
+    /// produce identical particle trajectories.
+    /// </summary>
+    public enum SeedStream
+    {
+        Particles = 0,
+        Abilities = 1,
+        Effects = 2
+    }
+
+    /// <summary>
+    /// Derives the seed for a given stream. Deliberately a fixed integer offset rather than
+    /// a hash: string hashing in .NET is randomised per process and would silently break
+    /// reproducibility across runs.
+    /// </summary>
+    public int SeedFor(SeedStream stream) => unchecked(RandomSeed + (int)stream * 7919);
 
     // Validation and normalization methods
     public void NormalizeTypeProbabilities()
@@ -173,7 +211,7 @@ public class SimulationConfig
         // Energy parameters
         BaseEnergyCapacity = Math.Clamp(BaseEnergyCapacity, 10, 1000);
         PassiveEnergyDrain = Math.Clamp(PassiveEnergyDrain, 0, 10);
-        EatingEnergyGain = Math.Clamp(EatingEnergyGain, 0, 1);
+        AmbientEnergyGainRate = Math.Clamp(AmbientEnergyGainRate, 0, 10);
         SizeRatioForEating = Math.Clamp(SizeRatioForEating, 1.0, 5.0);
         VisionRangeMultiplier = Math.Clamp(VisionRangeMultiplier, 1.0, 20.0);
         HungerThreshold = Math.Clamp(HungerThreshold, 0, 1);
@@ -185,6 +223,7 @@ public class SimulationConfig
         PhasingProbability = Math.Clamp(PhasingProbability, 0, 1);
         ChaseProbability = Math.Clamp(ChaseProbability, 0, 1);
         FleeProbability = Math.Clamp(FleeProbability, 0, 1);
+        SpeedBurstProbability = Math.Clamp(SpeedBurstProbability, 0, 1);
 
         // Chase/Flee parameters
         ChaseForce = Math.Clamp(ChaseForce, 0, 1000);
@@ -193,20 +232,28 @@ public class SimulationConfig
         FleeEnergyCost = Math.Clamp(FleeEnergyCost, 0, 10);
 
         // Splitting parameters
-        SplittingEnergyCost = Math.Clamp(SplittingEnergyCost, 0, 100);
+        SplittingEnergyCostPercent = Math.Clamp(SplittingEnergyCostPercent, 0, 1);
         SplittingCooldown = Math.Clamp(SplittingCooldown, 0, 60);
         SplittingSeparationForce = Math.Clamp(SplittingSeparationForce, 0, 500);
 
         // Reproduction parameters
-        ReproductionEnergyCost = Math.Clamp(ReproductionEnergyCost, 0, 100);
+        ReproductionEnergyCostPercent = Math.Clamp(ReproductionEnergyCostPercent, 0, 1);
         ReproductionCooldown = Math.Clamp(ReproductionCooldown, 0, 60);
         ReproductionMassTransfer = Math.Clamp(ReproductionMassTransfer, 0, 1);
-        ReproductionEnergyTransfer = Math.Clamp(ReproductionEnergyTransfer, 0, 1);
 
         // Phasing parameters
-        PhasingEnergyCost = Math.Clamp(PhasingEnergyCost, 0, 100);
+        PhasingEnergyCostPercent = Math.Clamp(PhasingEnergyCostPercent, 0, 1);
         PhasingCooldown = Math.Clamp(PhasingCooldown, 0, 60);
         PhasingDuration = Math.Clamp(PhasingDuration, 0, 10);
+
+        // Speed burst parameters
+        SpeedBurstEnergyCostPercent = Math.Clamp(SpeedBurstEnergyCostPercent, 0, 1);
+        SpeedBurstCooldown = Math.Clamp(SpeedBurstCooldown, 0, 60);
+
+        // Other cooldowns
+        EatingCooldown = Math.Clamp(EatingCooldown, 0, 60);
+        ChaseCooldown = Math.Clamp(ChaseCooldown, 0, 60);
+        FleeCooldown = Math.Clamp(FleeCooldown, 0, 60);
 
         // Energy-Mass Conversion parameters
         EnergyToMassConversionRate = Math.Clamp(EnergyToMassConversionRate, 0, 10);
@@ -223,7 +270,7 @@ public class SimulationConfig
         MinParticleMass = Math.Clamp(MinParticleMass, 0.1, 5.0);
         MovementSpeedMultiplierMax = Math.Clamp(MovementSpeedMultiplierMax, 1.0, 5.0);
         MovementSpeedMultiplierMin = Math.Clamp(MovementSpeedMultiplierMin, 0.1, 1.0);
-        SplittingOffspringEnergyPercentage = Math.Clamp(SplittingOffspringEnergyPercentage, 0.1, 1.0);
+        SplittingOffspringEnergyPercentage = Math.Clamp(SplittingOffspringEnergyPercentage, 0.1, 0.9);
         ReproductionMassTransferMin = Math.Clamp(ReproductionMassTransferMin, 0.1, 0.5);
         ReproductionMassTransferMax = Math.Clamp(ReproductionMassTransferMax, ReproductionMassTransferMin, 0.8);
         ReproductionEnergyTransferMin = Math.Clamp(ReproductionEnergyTransferMin, 0.1, 0.5);

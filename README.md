@@ -18,13 +18,22 @@ A C# WPF application that simulates particles (dots) with realistic physics inte
 
 - **Seed-Based Reproducibility**
   - Input any seed value to recreate specific scenarios
-  - Same seed always produces identical simulations
+  - Same seed always produces identical simulations, including visual effects
+  - Fixed simulation timestep, so the outcome does not depend on frame rate or frame pacing
 
 - **Performance Optimized**
   - Naive O(n²) collision detection for <50 particles
   - Spatial hash grid O(n) optimization for 50+ particles
   - Semi-implicit Euler integration for stable physics
   - Hardware-accelerated rendering with WPF
+
+- **Generated Sci-Fi Sound** (on by default, fully optional)
+  - Synthesised at runtime from FM, ring modulation, sweeps and a damped stereo delay
+  - No audio assets; pitch follows mass, panning follows position
+
+- **Two Render Modes**
+  - Classic: outlined discs with bars and overlays
+  - Luminous: additive HDR light field - no edges, particles are light sources
 
 - **Interactive Controls**
   - Start/Stop/Reset simulation
@@ -94,6 +103,12 @@ To verify that seeds produce reproducible simulations:
 4. Click "Reset" again (keeps same seed)
 5. Click "Start" and verify particles move identically
 
+Randomness is drawn from three independent streams derived from the single seed
+(`SimulationConfig.SeedFor`): particle generation, ability decisions, and visual effects.
+Keeping them separate means a headless run and a rendered run of the same seed produce
+identical particle trajectories, and adding a draw in one place does not shift every
+subsequent value elsewhere.
+
 ## Project Structure
 
 ```
@@ -130,6 +145,20 @@ velocity += acceleration × Δt
 position += velocity × Δt
 ```
 
+Energy-based speed multipliers raise or lower a particle's speed *ceiling*; they are not
+applied to the position step as well, so the velocity the physics sees is the velocity the
+particle actually travels at.
+
+### Fixed Timestep
+The simulation advances in fixed `1/60s` increments. Each rendered frame banks the real
+elapsed time in an accumulator and spends it in whole steps (capped at 5 per frame to avoid
+a spiral of death after a stall). Stepping by wall-clock frame time instead would make the
+outcome depend on frame pacing, so two runs of the same seed would drift apart no matter how
+carefully the randomness was seeded.
+
+Damping is additionally authored as a per-frame factor at 60 FPS and converted to the
+equivalent continuous decay via `factor^(Δt × 60)`.
+
 ### Elastic Collision Response
 1. Calculate collision normal: `n = normalize(b.pos - a.pos)`
 2. Separate overlapping particles based on mass ratio
@@ -144,13 +173,158 @@ a₁ = F / m₁
 a₂ = -F / m₂
 ```
 
+### Predation (Inelastic Merge)
+When a predator consumes prey it absorbs the prey's momentum along with its mass:
+```
+v = (m_predator × v_predator + m_absorbed × v_prey) / (m_predator + m_absorbed)
+```
+Prey is claimed atomically within a frame, so two overlapping predators cannot both
+consume the same particle.
+
+### Energy Budget
+Ambient gain is the simulation's only source of new energy - eating merely redistributes it
+(at 90% efficiency, with 15% of prey mass discarded per meal). Passive drain scales with
+`mass^0.66`, i.e. with surface area, so large particles are expensive to maintain. Both
+sides of the budget are adjustable in the Energy tab: raising **Ambient Energy Gain**
+supports larger populations, raising **Passive Energy Drain** suppresses them.
+
+### Splitting and the Growth Ratchet
+A particle's `MaxEnergy` scales with its mass, so as it eats and grows its energy
+*percentage* falls. Because both the split trigger and the split cost were expressed as
+percentages of `MaxEnergy`, the particles most in need of splitting were the ones least able
+to, and predation became a one-way ratchet ending in a few giants. Two mechanisms prevent
+this:
+
+- Past `MaxMass x OVERGROWN_SPLIT_MASS_RATIO` a particle splits regardless of its energy
+  percentage, and this outranks hunting in the AI (a giant is permanently "hungry", so if
+  chasing won it would hunt forever and never divide).
+- The split cost is capped at `SPLIT_COST_CEILING_MULTIPLE` times what a reference-sized
+  particle pays, so growth cannot price a particle out of its own escape hatch.
+
+Splitting still costs energy, so a starving particle cannot do it - correctly, since
+splitting does not improve energy percentage (pool and capacity both halve) and slightly
+worsens the net balance (two smaller particles have more combined surface area than one).
+
+### Propulsion (Chase / Flee)
+`ChaseForce` and `FleeForce` are accelerations calibrated at `ReferenceMass`
+(`(MinMass + MaxMass) / 2`). Actual acceleration is `F × ReferenceMass / m`, so heavier
+particles are correspondingly harder to accelerate.
+
+## Render Modes
+
+Two visual treatments of the same simulation, switchable live in the **Visual** tab.
+
+### Classic
+Outlined, opaque discs with energy bars, grid, trails and vision cones. Precise and
+readable - the right mode for inspecting what the simulation is doing.
+
+### Luminous (default)
+Every particle is an emitter in an additive high-dynamic-range light field
+(`Rendering/LightField.cs`, `Rendering/LuminousRenderer.cs`). Nothing has an edge: every
+primitive is a falloff that reaches exactly zero at its radius, so particles fade into the
+background instead of being cut out of it.
+
+**Why additive, not translucent.** Light is accumulated as unbounded floating-point energy
+and only converted to pixels at the end, through an exposure curve. Two overlapping lights
+therefore *sum* - their overlap is genuinely brighter than either alone and rolls off toward
+white. Drawing translucent ellipses instead would alpha-blend, so the nearer disc would partly
+hide the further one and no combination could ever exceed the brightest single source.
+
+Each particle emits three nested falloffs - a small lightly-whitened core, a coloured body,
+and a wide halo. Their sum is what removes any sense of a boundary: brightness slides
+continuously from the hot centre out to black space.
+
+Ability state is expressed as light rather than as overlays:
+
+| State | Appearance |
+|---|---|
+| Hunting | warm pulsing corona reaching outward |
+| Fleeing | tight cold shimmer |
+| Eating | brief golden flare |
+| Reproducing / Splitting | soft green bloom |
+| Phasing | body all but vanishes into a cold diffuse cloud |
+| Speed burst | comet - luminous wake plus a hot leading edge |
+| Growth / shrinkage | the particle's own light shifts cyan or orange |
+| Birth | motes of light converging, then an expanding shell |
+| Death | flash plus streaking sparks |
+
+Energy drives brightness directly: a starving particle is a dim ember, a full one a small star.
+
+**Light Settings**
+- **Exposure** - brightness applied before the tone curve.
+- **Glow Size** - multiplier on every emission radius.
+- **Light Trails** - fraction of each frame's light retained, so movement leaves a decaying
+  wake. Exposure is compensated by exactly `(1 - persistence)`, since a persistent field
+  converges to `1/(1-persistence)` times the per-frame contribution; anything softer than
+  that multiplies up and washes the frame out.
+
+**Performance.** Clearing, tone-mapping and uploading are per-pixel and independent of
+particle count, so at full resolution they dominate the frame rather than the lights do. The
+field therefore renders to a capped buffer and is stretched up on display - visually free for
+low-frequency glows, and worth roughly 12.9ms -> 8.5ms per frame on a 870k-pixel canvas.
+
+## Sound (optional)
+
+On by default; untick it in the **Audio** tab to run silently. There are no audio files in
+the project and no audio dependencies - every sound is synthesised at runtime and streamed to
+the sound card through WinMM's `waveOut` (`Audio/WaveOutDevice.cs`, `Audio/SynthMixer.cs`,
+`Audio/SimulationAudio.cs`).
+
+The palette is deliberately science-fiction, built from four synthesis techniques rather than
+from different pitches of the same beep:
+
+- **FM** - a modulator at a non-integer ratio of the carrier produces partials that are not
+  whole multiples of the fundamental, which is what makes a tone read as metallic or
+  synthetic instead of as a plain musical note.
+- **Ring modulation** - multiplying by a second oscillator replaces the fundamental with sum
+  and difference tones: clangorous and unmistakably artificial.
+- **Exponential pitch sweeps** - pitch is perceived logarithmically, so a geometric glide is
+  the one that sounds like an even slide rather than a lurch. This is what makes a "zap".
+- **A damped stereo delay** - nothing in the simulation is in a room, but a sound with no
+  reflections is heard as tiny and close. Offset repeats that darken as they decay place
+  every event in a large cold space, and do more for the character of the whole palette than
+  any individual voice does.
+
+Because it is generated rather than sampled, the audio can be derived from simulation state
+instead of merely accompanying it:
+
+- **Pitch follows mass.** A heavy particle speaks low and a light one high, for the same
+  reason a large bell is deeper than a small one.
+- **Stereo position follows screen position.** A death on the left is heard on the left.
+- **The ambient drone tracks the ecosystem.** Its pitch falls as the population grows and its
+  volume follows total energy, so the health of the simulation is audible without watching it.
+
+| Event | Sound | Built from |
+|---|---|---|
+| Eat | energy-weapon discharge | steep downward exponential sweep + FM bite |
+| Death | reactor losing containment | ring-modulated collapse, sub-octave, darkening noise |
+| Birth | materialisation | rising sweep with vibrato + FM, heavy delay send |
+| Split | replicator cycle | two detuned ring-modulated tones panned apart |
+| Phase | transporter | deep vibrato + ring mod over a long rising sweep, smeared |
+| Speed burst | thruster ignition | noise with the filter sweeping open + rising tone |
+
+The ambient drone is three partials - fundamental, a slightly sharp octave that beats against
+it, and a fifth - under a slow tremolo, so a sustained bed stays alive and faintly uneasy
+rather than sounding like a held organ note.
+
+Events of the same kind are rate limited, and the voice pool is capped at 24 with new
+requests dropped when it is full. Dozens of particles can eat in a single frame; without both
+limits the result is a solid rasp rather than distinguishable events.
+
+Audio is strictly a passive observer - it reads particle state and never writes it, so a run
+is bit-identical with sound absent, switched off, or actively playing. If no output device is
+available the feature reports why and the simulation continues in silence.
+
+`SimulationAudio.CreateOffline()` synthesises without claiming a device, so the sound design
+can be auditioned or tested by pumping `RenderTo` directly.
+
 ## Default Configuration
 
 - **Particle Count**: 50
 - **Random Seed**: 12345
 - **Simulation Size**: 800×600 pixels
 - **Gravity Constant**: 100.0
-- **Damping Factor**: 0.995 (0.5% energy loss per frame)
+- **Damping Factor**: 0.995 (0.5% velocity loss per 1/60s, applied continuously so behaviour is frame-rate independent)
 - **Restitution**: 0.8 (20% energy loss per collision)
 - **Mass Range**: 1.0 - 10.0
 - **Radius Range**: 5.0 - 20.0 pixels

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Numerics;
 using System.Linq;
 using DotGame.Models;
@@ -34,7 +34,7 @@ public class PhasingAbility : IAbility
 
         // Only phase when threatened and cornered
         var visible = VisionSystem.GetVisibleParticles(particle, context);
-        var threat = FindThreat(particle, visible);
+        var threat = DotGame.Utilities.ParticleQueryUtility.FindThreat(particle, visible, _config);
 
         if (threat == null) return false;
 
@@ -62,32 +62,12 @@ public class PhasingAbility : IAbility
         particle.Color = System.Windows.Media.Color.FromArgb(128,
             particle.Color.R, particle.Color.G, particle.Color.B);
 
+        context.Audio?.Phase(particle);
+
         // Trigger cooldown
         if (particle.Abilities.Cooldowns.TryGetValue(AbilityType.Phasing, out var cooldown))
         {
             cooldown.Trigger();
         }
-    }
-
-    private Particle? FindThreat(Particle particle, System.Collections.Generic.List<Particle> visible)
-    {
-        Particle? closestThreat = null;
-        float closestDistance = float.MaxValue;
-
-        foreach (var other in visible)
-        {
-            // A threat is a particle that is significantly larger (can eat us)
-            if (other.Radius >= particle.Radius * _config.SizeRatioForEating)
-            {
-                float distance = Vector2.Distance(particle.Position, other.Position);
-                if (distance < closestDistance)
-                {
-                    closestDistance = distance;
-                    closestThreat = other;
-                }
-            }
-        }
-
-        return closestThreat;
     }
 }

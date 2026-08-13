@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using DotGame.AI;
 using DotGame.Models;
@@ -110,12 +110,10 @@ public class AbilityExecutor
         }
 
         // Create explosions ONLY for particles that died from energy depletion (not eaten particles)
-        if (context.Renderer != null)
+        foreach (var dead in deadParticles)
         {
-            foreach (var dead in deadParticles)
-            {
-                context.Renderer.AddExplosion(dead);
-            }
+            context.Renderer?.AddExplosion(dead);
+            context.Audio?.Death(dead);
         }
 
         // Remove particles marked for removal (eaten, energy death, etc.)

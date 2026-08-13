@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Numerics;
 using DotGame.Models;
 using DotGame.Utilities;
@@ -8,14 +8,16 @@ namespace DotGame.Abilities;
 public class EatingAbility : IAbility
 {
     private readonly SimulationConfig _config;
+    private readonly RandomGenerator _random;
 
     public AbilityType Type => AbilityType.Eating;
     public double EnergyCost => 0; // Eating gives energy, doesn't cost it
-    public double CooldownDuration => 0.5; // Half second between bites
+    public double CooldownDuration => _config.EatingCooldown;
 
-    public EatingAbility(SimulationConfig config)
+    public EatingAbility(SimulationConfig config, RandomGenerator random)
     {
         _config = config;
+        _random = random;
     }
 
     public bool CanExecute(Particle particle, AbilityContext context)
@@ -23,14 +25,19 @@ public class EatingAbility : IAbility
         if (!particle.HasAbilities || !particle.Abilities.HasAbility(AbilitySet.Eating))
             return false;
 
-        // Find nearby particles that can be eaten
-        var prey = ParticleQueryUtility.FindEdiblePrey(particle, context.AllParticles, _config);
+        // Find nearby particles that can be eaten, ignoring anything already consumed this frame
+        var prey = ParticleQueryUtility.FindEdiblePrey(
+            particle, context.AllParticles, _config, context.ParticlesToRemove);
         return prey != null;
     }
 
     public void Execute(Particle particle, AbilityContext context)
     {
-        var prey = ParticleQueryUtility.FindEdiblePrey(particle, context.AllParticles, _config);
+        // A predator that has itself been eaten earlier this frame cannot feed.
+        if (context.ParticlesToRemove.Contains(particle.Id)) return;
+
+        var prey = ParticleQueryUtility.FindEdiblePrey(
+            particle, context.AllParticles, _config, context.ParticlesToRemove);
         if (prey == null) return;
 
         // Check if particles are touching
@@ -38,10 +45,20 @@ public class EatingAbility : IAbility
         if (distance > particle.Radius + prey.Radius)
             return;
 
+        // Claim the prey immediately so a second predator in the same frame cannot also
+        // absorb it - otherwise the prey's mass and energy get duplicated.
+        context.ParticlesToRemove.Add(prey.Id);
+
         // Transfer mass and energy using configured percentages
         double oldMass = particle.Mass;
         double massGain = prey.Mass * _config.EatingMassTransfer;
         particle.Mass += massGain;
+
+        // Conserve momentum across the merge. The predator absorbs the prey's mass, so it
+        // must also absorb its momentum: v = (m1*v1 + m2*v2) / (m1 + m2). Keeping the
+        // predator's original velocity would invent momentum proportional to whatever it ate.
+        Vector2 mergedMomentum = particle.Velocity * (float)oldMass + prey.Velocity * (float)massGain;
+        particle.Velocity = mergedMomentum / (float)particle.Mass;
 
         // Update radius based on new mass (area proportional to mass)
         particle.Radius = Math.Sqrt(particle.Mass / oldMass) * particle.Radius;
@@ -52,7 +69,7 @@ public class EatingAbility : IAbility
             double energyGain = prey.Abilities.Energy * _config.EatingEnergyTransfer;
 
             // Update max energy based on new mass first
-            particle.Abilities.MaxEnergy = particle.Mass * (_config.BaseEnergyCapacity / 10.0);
+            particle.Abilities.MaxEnergy = _config.EnergyCapacityForMass(particle.Mass);
 
             // Add energy gain to current energy, clamped to max
             particle.Abilities.Energy = Math.Min(
@@ -81,13 +98,12 @@ public class EatingAbility : IAbility
             );
         }
 
-        // Mark prey for removal
-        context.ParticlesToRemove.Add(prey.Id);
+        context.Audio?.Eat(particle, prey);
 
-        // Start cooldown
-        if (particle.Abilities.Cooldowns.ContainsKey(Type))
+        // Start cooldown (prey was already claimed above)
+        if (particle.Abilities.Cooldowns.TryGetValue(Type, out var eatingCooldown))
         {
-            particle.Abilities.Cooldowns[Type].TimeRemaining = CooldownDuration;
+            eatingCooldown.Trigger();
         }
 
         // Set state
@@ -95,14 +111,13 @@ public class EatingAbility : IAbility
     }
 
 
+    // Chance the predator picks up each ability its prey had
+    private const double ABILITY_ABSORPTION_CHANCE = 0.1;
+
     private void InheritAbilities(Particle predator, Particle prey)
     {
         if (!predator.HasAbilities || !prey.HasAbilities) return;
 
-        var random = new Random();
-        var preyAbilities = prey.Abilities.Abilities;
-
-        // 10% chance to inherit each ability the prey has
         foreach (AbilitySet ability in Enum.GetValues(typeof(AbilitySet)))
         {
             if (ability == AbilitySet.None) continue;
@@ -111,7 +126,7 @@ public class EatingAbility : IAbility
             if (prey.Abilities.HasAbility(ability) &&
                 !predator.Abilities.HasAbility(ability))
             {
-                if (random.NextDouble() < 0.1) // 10% chance
+                if (_random.NextDouble() < ABILITY_ABSORPTION_CHANCE)
                 {
                     predator.Abilities.Abilities |= ability;
 
@@ -148,14 +163,14 @@ public class EatingAbility : IAbility
     {
         return abilityType switch
         {
-            AbilityType.Eating => 0.5,
-            AbilityType.Splitting => 5.0,
-            AbilityType.Reproduction => 8.0,
-            AbilityType.Phasing => 10.0,
-            AbilityType.Chase => 0,
-            AbilityType.Flee => 0,
+            AbilityType.Eating => _config.EatingCooldown,
+            AbilityType.Splitting => _config.SplittingCooldown,
+            AbilityType.Reproduction => _config.ReproductionCooldown,
+            AbilityType.Phasing => _config.PhasingCooldown,
+            AbilityType.Chase => _config.ChaseCooldown,
+            AbilityType.Flee => _config.FleeCooldown,
+            AbilityType.SpeedBurst => _config.SpeedBurstCooldown,
             AbilityType.CustomAttraction => 0,
-            AbilityType.SpeedBurst => 6.0,
             AbilityType.EnergyTransfer => 4.0,
             AbilityType.Camouflage => 12.0,
             _ => 1.0

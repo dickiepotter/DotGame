@@ -1,5 +1,6 @@
 using System.Numerics;
 using System.Windows.Media;
+using DotGame.Utilities;
 
 namespace DotGame.Models;
 
@@ -27,7 +28,10 @@ public class ParticleBirth
         }
     }
 
-    public ParticleBirth(Particle particle, Vector2? parentPosition = null)
+    /// <param name="random">
+    /// Seeded effects stream, so birth sparkle is reproducible from the simulation seed.
+    /// </param>
+    public ParticleBirth(Particle particle, RandomGenerator random, Vector2? parentPosition = null)
     {
         ParticleId = particle.Id;
         TargetPosition = particle.Position;
@@ -36,16 +40,15 @@ public class ParticleBirth
         TargetRadius = particle.Radius;
         TimeElapsed = 0;
         Duration = particle.HasAbilities ? particle.Abilities.BirthTimeRemaining : 1.0;
-        Fragments = CreateFragments(particle, parentPosition);
+        Fragments = CreateFragments(particle, parentPosition, random);
     }
 
-    private List<BirthFragment> CreateFragments(Particle particle, Vector2? parentPosition)
+    private List<BirthFragment> CreateFragments(Particle particle, Vector2? parentPosition, RandomGenerator random)
     {
         var fragments = new List<BirthFragment>();
         int fragmentCount = (int)(particle.Radius * 1.5); // Fewer fragments than explosion
         fragmentCount = Math.Max(6, Math.Min(fragmentCount, 15)); // Between 6-15 fragments
 
-        var random = new Random();
         Vector2 startPos = parentPosition ?? particle.Position;
 
         for (int i = 0; i < fragmentCount; i++)

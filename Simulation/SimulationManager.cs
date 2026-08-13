@@ -1,10 +1,11 @@
-using System.Numerics;
+﻿using System.Numerics;
 using System.Windows.Controls;
 using System.Windows.Media;
 using DotGame.Models;
 using DotGame.Physics;
 using DotGame.Rendering;
 using DotGame.Utilities;
+using DotGame.Audio;
 using static DotGame.Utilities.PhysicsConstants;
 
 namespace DotGame.Simulation;
@@ -17,9 +18,13 @@ public class SimulationManager
     private readonly ParticleRenderer _renderer;
     private readonly ParticleFactory _factory;
     private readonly PerformanceMonitor _performanceMonitor;
+    private readonly ParticleIdGenerator _idGenerator;
+    private readonly SimulationAudio _audio = new();
 
     private List<Particle> _particles;
     private DateTime _lastUpdateTime;
+    private double _timeAccumulator;
+    private long _stepCount;
     private bool _isRunning;
 
     public bool IsRunning => _isRunning;
@@ -27,13 +32,28 @@ public class SimulationManager
     public ParticleRenderer Renderer => _renderer;
     public PerformanceMonitor PerformanceMonitor => _performanceMonitor;
 
+    /// <summary>Optional sound. Silent and inert until explicitly enabled.</summary>
+    public SimulationAudio Audio => _audio;
+
+    /// <summary>
+    /// Number of fixed simulation steps executed since the last reset. Together with the
+    /// seed this fully determines the current state.
+    /// </summary>
+    public long StepCount => _stepCount;
+
     public SimulationManager(Canvas canvas, SimulationConfig config)
     {
         _canvas = canvas;
         _config = config;
-        _physicsEngine = new PhysicsEngine(config);
-        _renderer = new ParticleRenderer(canvas);
-        _factory = new ParticleFactory(config);
+
+        // One ID source shared by the factory and by every ability that spawns particles.
+        // The renderer keys its visuals by particle Id, so overlapping ID ranges would make
+        // particles share (and lose) their ellipse.
+        _idGenerator = new ParticleIdGenerator();
+
+        _physicsEngine = new PhysicsEngine(config, _idGenerator);
+        _renderer = new ParticleRenderer(canvas, new RandomGenerator(config.SeedFor(SimulationConfig.SeedStream.Effects)));
+        _factory = new ParticleFactory(config, _idGenerator);
         _performanceMonitor = new PerformanceMonitor(60); // Track last 60 frames
 
         _particles = new List<Particle>();
@@ -52,6 +72,8 @@ public class SimulationManager
         _renderer.Render(_particles);
 
         _lastUpdateTime = DateTime.Now;
+        _timeAccumulator = 0;
+        _stepCount = 0;
     }
 
     public void Reset()
@@ -65,6 +87,8 @@ public class SimulationManager
         if (_isRunning) return;
 
         _isRunning = true;
+
+        // Reset the clock so time spent paused is not banked into the accumulator
         _lastUpdateTime = DateTime.Now;
 
         // Hook into WPF's rendering event (targets 60 FPS)
@@ -77,6 +101,16 @@ public class SimulationManager
 
         _isRunning = false;
         CompositionTarget.Rendering -= OnRendering;
+
+        // Silence the ambient bed while paused; transient voices ring out naturally
+        _audio.Update(new List<Particle>(), 0);
+    }
+
+    /// <summary>Releases the audio device. Called when the simulation is replaced.</summary>
+    public void Shutdown()
+    {
+        Stop();
+        _audio.Dispose();
     }
 
     private void OnRendering(object? sender, EventArgs e)
@@ -86,174 +120,51 @@ public class SimulationManager
         // Start performance tracking
         _performanceMonitor.StartFrame();
 
-        // Calculate delta time
+        // Measure real elapsed time and bank it
         var currentTime = DateTime.Now;
-        double deltaTime = (currentTime - _lastUpdateTime).TotalSeconds;
+        double elapsed = (currentTime - _lastUpdateTime).TotalSeconds;
         _lastUpdateTime = currentTime;
 
-        // Cap delta time to prevent physics instability
-        deltaTime = Math.Min(deltaTime, MAX_DELTA_TIME);
+        // Guard against a huge first frame or a resume from suspend
+        elapsed = Math.Clamp(elapsed, 0, FIXED_DELTA_TIME * MAX_STEPS_PER_FRAME);
+        _timeAccumulator += elapsed;
 
-        // Skip update if delta time is too small
-        if (deltaTime < MIN_DELTA_TIME)
+        // Advance the simulation in fixed increments. A given seed and a given number of
+        // steps always produce exactly the same state, independent of frame rate or of how
+        // the frames happened to be paced.
+        int steps = 0;
+        while (_timeAccumulator >= FIXED_DELTA_TIME && steps < MAX_STEPS_PER_FRAME)
         {
-            _performanceMonitor.EndFrame();
-            return;
+            _physicsEngine.Update(_particles, FIXED_DELTA_TIME, _renderer, _audio);
+            _timeAccumulator -= FIXED_DELTA_TIME;
+            steps++;
+            _stepCount++;
         }
 
-        // Update physics (pass renderer for explosion effects)
-        _physicsEngine.Update(_particles, deltaTime, _renderer);
+        // Drop any backlog we could not clear, rather than compounding it next frame
+        if (_timeAccumulator > FIXED_DELTA_TIME)
+            _timeAccumulator = 0;
 
-        // Update rendering
-        _renderer.Render(_particles, deltaTime);
+        // Animate visuals by the amount of simulated time actually consumed, so the
+        // effects stay in lockstep with the physics
+        _renderer.Render(_particles, steps * FIXED_DELTA_TIME);
+
+        // Ambient bed tracks the state of the population
+        _audio.SetWorldWidth(_config.SimulationWidth);
+        _audio.Update(_particles, steps * FIXED_DELTA_TIME);
 
         // End performance tracking
         _performanceMonitor.EndFrame();
     }
 
-    // Add a new particle at the specified position
+    // Add a new particle at the specified position.
+    // Delegates entirely to the factory: this used to be a near-copy of the factory's logic
+    // that had drifted apart from it, most visibly in the energy-capacity formula, which
+    // gave hand-placed particles ten times the energy of the startup population.
     public void AddParticle(Vector2 position)
     {
-        // Generate random properties for the new particle
-        var random = new Random();
-        var radius = random.NextDouble() * (_config.MaxRadius - _config.MinRadius) + _config.MinRadius;
-        var mass = random.NextDouble() * (_config.MaxMass - _config.MinMass) + _config.MinMass;
-
-        // Ensure particle is within bounds
-        position.X = Math.Clamp(position.X, (float)radius, (float)(_config.SimulationWidth - radius));
-        position.Y = Math.Clamp(position.Y, (float)radius, (float)(_config.SimulationHeight - radius));
-
-        // Create new particle with zero initial velocity
-        var particle = new Particle
-        {
-            Id = _particles.Count > 0 ? _particles.Max(p => p.Id) + 1 : 0,
-            Position = position,
-            Velocity = Vector2.Zero,
-            Mass = mass,
-            Radius = radius,
-            PreviousPosition = position
-        };
-
-        // Add abilities if enabled
-        if (_config.UseAbilities)
-        {
-            particle.Abilities = CreateRandomAbilities(mass, random);
-            particle.Color = ColorGenerator.GetColorForAbilities(particle.Abilities);
-        }
-        else
-        {
-            particle.Color = ColorGenerator.GetColorForMass(mass, _config.MinMass, _config.MaxMass);
-        }
-
-        _particles.Add(particle);
+        _particles.Add(_factory.CreateParticleAt(position));
         _renderer.Initialize(_particles); // Re-initialize renderer to include new particle
-    }
-
-    private ParticleAbilities CreateRandomAbilities(double mass, Random random)
-    {
-        // Energy capacity scales with mass
-        // Normalize by minimum mass so particles have comparable starting energy
-        double energyCapacity = mass * (_config.BaseEnergyCapacity / _config.MinMass);
-
-        var abilities = new ParticleAbilities
-        {
-            Energy = energyCapacity,
-            MaxEnergy = energyCapacity,
-            Type = ChooseRandomType(random),
-            Generation = 0,
-            Abilities = AbilitySet.None,
-            CurrentState = AbilityState.Idle
-        };
-
-        // Initialize random thresholds for this particle
-        abilities.EnergyToMassThreshold = random.NextDouble() *
-            (_config.EnergyToMassThresholdMax - _config.EnergyToMassThresholdMin) +
-            _config.EnergyToMassThresholdMin;
-
-        abilities.MassToEnergyThreshold = random.NextDouble() *
-            (_config.MassToEnergyThresholdMax - _config.MassToEnergyThresholdMin) +
-            _config.MassToEnergyThresholdMin;
-
-        abilities.EnergyAbundanceThreshold = random.NextDouble() *
-            (_config.EnergyAbundanceThresholdMax - _config.EnergyAbundanceThresholdMin) +
-            _config.EnergyAbundanceThresholdMin;
-
-        abilities.EnergyConservationThreshold = random.NextDouble() *
-            (_config.EnergyConservationThresholdMax - _config.EnergyConservationThresholdMin) +
-            _config.EnergyConservationThresholdMin;
-
-        abilities.MovementSpeedMultiplier = 1.0; // Start at normal speed
-
-        // Randomly assign abilities based on probabilities
-        if (random.NextDouble() < _config.EatingProbability)
-            abilities.Abilities |= AbilitySet.Eating;
-
-        if (random.NextDouble() < _config.SplittingProbability)
-            abilities.Abilities |= AbilitySet.Splitting;
-
-        if (random.NextDouble() < _config.ReproductionProbability)
-            abilities.Abilities |= AbilitySet.Reproduction;
-
-        if (random.NextDouble() < _config.PhasingProbability)
-            abilities.Abilities |= AbilitySet.Phasing;
-
-        if (random.NextDouble() < _config.ChaseProbability)
-            abilities.Abilities |= AbilitySet.Chase;
-
-        if (random.NextDouble() < _config.FleeProbability)
-            abilities.Abilities |= AbilitySet.Flee;
-
-        // Initialize cooldowns for assigned abilities
-        InitializeCooldowns(abilities);
-
-        // Calculate initial vision range
-        abilities.VisionRange = mass * _config.VisionRangeMultiplier;
-
-        return abilities;
-    }
-
-    private ParticleType ChooseRandomType(Random random)
-    {
-        double roll = random.NextDouble();
-        double cumulative = 0;
-
-        cumulative += _config.PredatorProbability;
-        if (roll < cumulative) return ParticleType.Predator;
-
-        cumulative += _config.HerbivoreProbability;
-        if (roll < cumulative) return ParticleType.Herbivore;
-
-        cumulative += _config.SocialProbability;
-        if (roll < cumulative) return ParticleType.Social;
-
-        cumulative += _config.SolitaryProbability;
-        if (roll < cumulative) return ParticleType.Solitary;
-
-        return ParticleType.Neutral;
-    }
-
-    private void InitializeCooldowns(ParticleAbilities abilities)
-    {
-        if (abilities.HasAbility(AbilitySet.Eating))
-            abilities.InitializeCooldown(AbilityType.Eating, _config.EatingCooldown);
-
-        if (abilities.HasAbility(AbilitySet.Splitting))
-            abilities.InitializeCooldown(AbilityType.Splitting, _config.SplittingCooldown);
-
-        if (abilities.HasAbility(AbilitySet.Reproduction))
-            abilities.InitializeCooldown(AbilityType.Reproduction, _config.ReproductionCooldown);
-
-        if (abilities.HasAbility(AbilitySet.Phasing))
-            abilities.InitializeCooldown(AbilityType.Phasing, _config.PhasingCooldown);
-
-        if (abilities.HasAbility(AbilitySet.SpeedBurst))
-            abilities.InitializeCooldown(AbilityType.SpeedBurst, _config.SpeedBurstCooldown);
-
-        if (abilities.HasAbility(AbilitySet.Chase))
-            abilities.InitializeCooldown(AbilityType.Chase, _config.ChaseCooldown);
-
-        if (abilities.HasAbility(AbilitySet.Flee))
-            abilities.InitializeCooldown(AbilityType.Flee, _config.FleeCooldown);
     }
 
     // Find a particle at or near the specified position

@@ -1,10 +1,11 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Shapes;
 using DotGame.Models;
+using DotGame.Utilities;
 
 namespace DotGame.Rendering;
 
@@ -17,10 +18,21 @@ public class BirthAnimationRenderer
     private readonly List<ParticleBirth> _activeBirths;
     private readonly Dictionary<ParticleBirth, List<Ellipse>> _birthElements;
     private readonly Dictionary<int, ParticleBirth> _particleBirthMap;
+    private readonly RandomGenerator _random;
 
-    public BirthAnimationRenderer(Canvas canvas)
+    /// <summary>
+    /// When false the animation state is still tracked but no WPF shapes are created.
+    /// Luminous mode reads <see cref="ActiveBirths"/> and emits light instead.
+    /// </summary>
+    public bool CreateVisuals { get; set; } = true;
+
+    /// <summary>Live birth animations, for renderers that draw them themselves.</summary>
+    public IReadOnlyList<ParticleBirth> ActiveBirths => _activeBirths;
+
+    public BirthAnimationRenderer(Canvas canvas, RandomGenerator random)
     {
         _canvas = canvas;
+        _random = random;
         _activeBirths = new List<ParticleBirth>();
         _birthElements = new Dictionary<ParticleBirth, List<Ellipse>>();
         _particleBirthMap = new Dictionary<int, ParticleBirth>();
@@ -58,9 +70,11 @@ public class BirthAnimationRenderer
     /// </summary>
     public void AddBirthAnimation(Particle particle, Vector2? parentPosition = null)
     {
-        var birth = new ParticleBirth(particle, parentPosition);
+        var birth = new ParticleBirth(particle, _random, parentPosition);
         _activeBirths.Add(birth);
         _particleBirthMap[particle.Id] = birth;
+
+        if (!CreateVisuals) return;
 
         // Create visual elements for birth fragments
         var fragmentElements = new List<Ellipse>();

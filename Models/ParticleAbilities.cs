@@ -215,12 +215,19 @@ public class ParticleAbilities
     public double EnergyConservationThreshold { get; set; } // When energy < this %, decrease movement
     public double MovementSpeedMultiplier { get; set; } // Dynamic movement speed modifier (0.5 to 2.0)
 
+    /// <summary>
+    /// Energy fraction below which this particle starts hunting. Seeded from
+    /// SimulationConfig.HungerThreshold at creation and inherited by offspring.
+    /// </summary>
+    public double HungerThreshold { get; set; }
+
     public ParticleAbilities()
     {
         Cooldowns = new Dictionary<AbilityType, CooldownTimer>();
         CurrentState = AbilityState.Idle;
         Generation = 0;
         MovementSpeedMultiplier = 1.0; // Default normal speed
+        HungerThreshold = 0.3; // Overwritten from config by the particle factory
 
         // Initialize timed states
         PhasingState = new TimedState();

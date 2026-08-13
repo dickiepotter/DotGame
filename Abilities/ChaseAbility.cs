@@ -23,12 +23,14 @@ public class ChaseAbility : IAbility
             return false;
 
         // Chase when hungry and see smaller prey
-        return particle.IsHungry && ParticleQueryUtility.FindChaseTarget(particle, context.AllParticles, _config) != null;
+        return particle.IsHungry && ParticleQueryUtility.FindChaseTarget(
+            particle, context.AllParticles, _config, context.ParticlesToRemove) != null;
     }
 
     public void Execute(Particle particle, AbilityContext context)
     {
-        var target = ParticleQueryUtility.FindChaseTarget(particle, context.AllParticles, _config);
+        var target = ParticleQueryUtility.FindChaseTarget(
+            particle, context.AllParticles, _config, context.ParticlesToRemove);
         if (target == null) return;
 
         // Apply force toward target
@@ -47,8 +49,12 @@ public class ChaseAbility : IAbility
             float typeMult = (float)particle.Abilities.GetChaseForceMult();
             float chaseForce = baseForce * typeMult;
 
-            // Apply force
-            particle.Velocity += direction * chaseForce * (float)context.DeltaTime;
+            // a = F/m. Without this the propulsive force was added straight to velocity and
+            // a 40-mass particle accelerated exactly as hard as a 2-mass one. ChaseForce is
+            // calibrated as the acceleration felt by a particle of ReferenceMass.
+            float massScale = (float)(_config.ReferenceMass / Math.Max(particle.Mass, 0.0001));
+
+            particle.Velocity += direction * chaseForce * massScale * (float)context.DeltaTime;
         }
 
         // Drain energy continuously while chasing

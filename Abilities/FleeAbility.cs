@@ -40,15 +40,19 @@ public class FleeAbility : IAbility
             direction = Vector2.Normalize(direction);
 
             // Flee force scaled by threat proximity (closer = faster flee)
-            float proximityMultiplier = 1.0f - Math.Min(1.0f, distance / (float)particle.Abilities.VisionRange);
+            float visionRange = (float)Math.Max(particle.Abilities.VisionRange, 0.0001);
+            float proximityMultiplier = 1.0f - Math.Min(1.0f, distance / visionRange);
             float baseForce = (float)_config.FleeForce * (0.5f + proximityMultiplier * 0.5f);
 
             // Apply type synergy bonus
             float typeMult = (float)particle.Abilities.GetFleeForceMult();
             float fleeForce = baseForce * typeMult;
 
-            // Apply force
-            particle.Velocity += direction * fleeForce * (float)context.DeltaTime;
+            // a = F/m, calibrated so FleeForce is the acceleration felt at ReferenceMass.
+            // Heavier particles are correspondingly harder to get moving.
+            float massScale = (float)(_config.ReferenceMass / Math.Max(particle.Mass, 0.0001));
+
+            particle.Velocity += direction * fleeForce * massScale * (float)context.DeltaTime;
         }
 
         // Drain energy continuously while fleeing

@@ -1,35 +1,64 @@
-using System;
+﻿using System;
 using System.Numerics;
 using DotGame.Models;
 using DotGame.Utilities;
-using static DotGame.Utilities.GameplayConstants;
 
 namespace DotGame.Abilities;
 
 public class SplittingAbility : IAbility
 {
     private readonly SimulationConfig _config;
-    private static int _nextParticleId = SPLITTING_PARTICLE_ID_START;
+    private readonly RandomGenerator _random;
+    private readonly ParticleIdGenerator _idGenerator;
 
-    public SplittingAbility(SimulationConfig config)
+    public SplittingAbility(SimulationConfig config, RandomGenerator random, ParticleIdGenerator idGenerator)
     {
         _config = config;
+        _random = random;
+        _idGenerator = idGenerator;
     }
 
     public AbilityType Type => AbilityType.Splitting;
-    public double EnergyCost => _config.SplittingEnergyCost;
+
+    // The real cost is a percentage of the particle's own capacity, so it is charged in
+    // CanExecute/Execute rather than through this flat interface value.
+    public double EnergyCost => 0;
     public double CooldownDuration => _config.SplittingCooldown;
+
+    /// <summary>
+    /// Energy price of splitting. Scales with the particle's own capacity, but is capped at
+    /// a multiple of what a reference-sized particle pays.
+    ///
+    /// Without the cap the cost is purely proportional to MaxEnergy, which itself grows with
+    /// mass - so an overgrown particle's split cost outruns the energy it can realistically
+    /// hold, and it can never split no matter how oversized it becomes.
+    /// </summary>
+    private static double CostFor(ParticleAbilities abilities, SimulationConfig config)
+    {
+        double proportional = abilities.MaxEnergy * config.SplittingEnergyCostPercent;
+
+        double ceiling = config.EnergyCapacityForMass(config.ReferenceMass)
+                         * config.SplittingEnergyCostPercent
+                         * GameplayConstants.SPLIT_COST_CEILING_MULTIPLE;
+
+        return Math.Min(proportional, ceiling) * abilities.GetEnergyCostMult();
+    }
 
     public bool CanExecute(Particle particle, AbilityContext context)
     {
         if (!particle.HasAbilities) return false;
+
+        // Respect the population ceiling. Reproduction already did this; splitting did not,
+        // which is exactly the runaway the MaxParticles setting exists to prevent.
+        if (context.AllParticles.Count + context.ParticlesToAdd.Count >= _config.MaxParticles)
+            return false;
 
         // Can only split if mass is at least 2x the minimum
         double minMass = _config.MinMass;
         if (particle.Mass < minMass * 2.0) return false;
 
         // Check energy requirement
-        if (particle.Abilities!.Energy < EnergyCost) return false;
+        if (particle.Abilities!.Energy < CostFor(particle.Abilities, _config)) return false;
 
         return true;
     }
@@ -39,7 +68,7 @@ public class SplittingAbility : IAbility
         if (!particle.HasAbilities) return;
 
         // Cost energy
-        particle.Abilities!.Energy -= EnergyCost;
+        particle.Abilities!.Energy -= CostFor(particle.Abilities, _config);
 
         // Store original values
         double originalMass = particle.Mass;
@@ -48,22 +77,23 @@ public class SplittingAbility : IAbility
         Vector2 originalPosition = particle.Position;
         Vector2 originalVelocity = particle.Velocity;
 
+        // Split the remaining energy between the two halves. Previously the offspring was
+        // handed a fresh percentage of its own MaxEnergy, unrelated to what the parent had,
+        // which let splitting create energy from nothing.
+        double energyPool = particle.Abilities.Energy;
+        double offspringEnergy = energyPool * _config.SplittingOffspringEnergyPercentage;
+        double parentEnergy = energyPool - offspringEnergy;
+
         // Halve the original particle mass
         particle.Mass = originalMass / 2.0;
         particle.Radius = originalRadius / Math.Sqrt(2.0); // Maintain density
-        particle.Abilities.MaxEnergy = particle.Mass * (_config.BaseEnergyCapacity / 10.0);
-
-        // Parent keeps half energy (original behavior for parent)
-        particle.Abilities.Energy = originalEnergy / 2.0;
-
-        // Clamp energy to new max
-        if (particle.Abilities.Energy > particle.Abilities.MaxEnergy)
-            particle.Abilities.Energy = particle.Abilities.MaxEnergy;
+        particle.Abilities.MaxEnergy = _config.EnergyCapacityForMass(particle.Mass);
+        particle.Abilities.Energy = Math.Min(parentEnergy, particle.Abilities.MaxEnergy);
 
         // Create offspring particle (clone)
         var offspring = new Particle
         {
-            Id = System.Threading.Interlocked.Increment(ref _nextParticleId),
+            Id = _idGenerator.Next(),
             Position = originalPosition,
             Velocity = originalVelocity,
             Mass = originalMass / 2.0,
@@ -73,7 +103,7 @@ public class SplittingAbility : IAbility
         };
 
         // Clone abilities
-        offspring.Abilities = CloneAbilities(particle.Abilities, offspring.Mass);
+        offspring.Abilities = CloneAbilities(particle.Abilities, offspring.Mass, offspringEnergy);
 
         // Mark offspring as birthing (invulnerable during animation)
         offspring.Abilities.IsBirthing = true;
@@ -84,12 +114,13 @@ public class SplittingAbility : IAbility
         particle.Color = Utilities.ColorGenerator.GetColorForAbilities(particle.Abilities);
         offspring.Color = Utilities.ColorGenerator.GetColorForAbilities(offspring.Abilities);
 
-        // Apply separation impulse to push particles apart
-        Vector2 separationDirection = GenerateRandomDirection();
-        float separationForce = (float)_config.SplittingSeparationForce;
+        // Apply separation impulse to push particles apart. Equal and opposite impulses
+        // divided by each half's mass, so the pair's total momentum is unchanged.
+        Vector2 separationDirection = _random.NextUnitVector();
+        float separationImpulse = (float)_config.SplittingSeparationForce;
 
-        particle.Velocity += separationDirection * separationForce;
-        offspring.Velocity -= separationDirection * separationForce;
+        particle.Velocity += separationDirection * separationImpulse * (float)particle.InverseMass;
+        offspring.Velocity -= separationDirection * separationImpulse * (float)offspring.InverseMass;
 
         // Ensure particles don't overlap by offsetting positions slightly
         float offset = (float)(particle.Radius + offspring.Radius) * 0.6f;
@@ -99,6 +130,8 @@ public class SplittingAbility : IAbility
         // Clamp positions to boundaries
         ClampToBoundaries(particle);
         ClampToBoundaries(offspring);
+
+        context.Audio?.Split(particle);
 
         // Add offspring to context
         context.ParticlesToAdd.Add(offspring);
@@ -114,39 +147,40 @@ public class SplittingAbility : IAbility
         }
     }
 
-    private ParticleAbilities CloneAbilities(ParticleAbilities source, double newMass)
+    private ParticleAbilities CloneAbilities(ParticleAbilities source, double newMass, double energy)
     {
         var clone = new ParticleAbilities
         {
-            MaxEnergy = newMass * (_config.BaseEnergyCapacity / 10.0),
+            MaxEnergy = _config.EnergyCapacityForMass(newMass),
             Type = source.Type,
             Generation = source.Generation + 1,
             Abilities = source.Abilities, // Same ability set
             CurrentState = AbilityState.Idle,
-            VisionRange = source.VisionRange
+            VisionRange = source.VisionRange,
+            HungerThreshold = source.HungerThreshold,
+            MovementSpeedMultiplier = 1.0
         };
 
-        // Offspring gets fresh energy (percentage of max energy)
-        clone.Energy = clone.MaxEnergy * _config.SplittingOffspringEnergyPercentage;
+        // Offspring receives its share of the parent's energy pool (see Execute)
+        clone.Energy = Math.Min(energy, clone.MaxEnergy);
 
         // Inherit thresholds with random variance
-        var random = Random.Shared;
         double variance = _config.ThresholdInheritanceVariance;
 
         clone.EnergyToMassThreshold = Math.Clamp(
-            source.EnergyToMassThreshold + (random.NextDouble() * 2 - 1) * variance,
+            source.EnergyToMassThreshold + (_random.NextDouble() * 2 - 1) * variance,
             _config.EnergyToMassThresholdMin, _config.EnergyToMassThresholdMax);
 
         clone.MassToEnergyThreshold = Math.Clamp(
-            source.MassToEnergyThreshold + (random.NextDouble() * 2 - 1) * variance,
+            source.MassToEnergyThreshold + (_random.NextDouble() * 2 - 1) * variance,
             _config.MassToEnergyThresholdMin, _config.MassToEnergyThresholdMax);
 
         clone.EnergyAbundanceThreshold = Math.Clamp(
-            source.EnergyAbundanceThreshold + (random.NextDouble() * 2 - 1) * variance,
+            source.EnergyAbundanceThreshold + (_random.NextDouble() * 2 - 1) * variance,
             _config.EnergyAbundanceThresholdMin, _config.EnergyAbundanceThresholdMax);
 
         clone.EnergyConservationThreshold = Math.Clamp(
-            source.EnergyConservationThreshold + (random.NextDouble() * 2 - 1) * variance,
+            source.EnergyConservationThreshold + (_random.NextDouble() * 2 - 1) * variance,
             _config.EnergyConservationThresholdMin, _config.EnergyConservationThresholdMax);
 
         // Clone cooldowns
@@ -157,13 +191,6 @@ public class SplittingAbility : IAbility
         }
 
         return clone;
-    }
-
-    private Vector2 GenerateRandomDirection()
-    {
-        // Generate random angle
-        double angle = Random.Shared.NextDouble() * Math.PI * 2.0;
-        return new Vector2((float)Math.Cos(angle), (float)Math.Sin(angle));
     }
 
     private void ClampToBoundaries(Particle particle)

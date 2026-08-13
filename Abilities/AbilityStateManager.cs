@@ -101,10 +101,6 @@ public class AbilityStateManager
     {
         if (!particle.HasAbilities) return;
 
-        // Vision range based on size, energy, and type synergy
-        double baseVision = particle.Radius * _config.VisionRangeMultiplier;
-        double energyMultiplier = particle.EnergyPercentage * 0.5 + 0.5; // 0.5 to 1.0
-        double typeMult = particle.Abilities.GetVisionMult(); // Type-based bonus
-        particle.Abilities.VisionRange = baseVision * energyMultiplier * typeMult;
+        particle.Abilities.VisionRange = AI.VisionSystem.CalculateVisionRange(particle, _config);
     }
 }

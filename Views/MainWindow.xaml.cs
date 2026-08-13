@@ -1,4 +1,4 @@
-using System.Numerics;
+﻿using System.Numerics;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Controls;
@@ -56,6 +56,18 @@ public partial class MainWindow : Window
         InitializeSimulation();
     }
 
+    /// <summary>
+    /// Releases the audio device and its feed thread on close. The thread is a background
+    /// thread so the process would exit regardless, but closing the waveOut handle explicitly
+    /// avoids leaving the device claimed during a slow shutdown.
+    /// </summary>
+    protected override void OnClosed(EventArgs e)
+    {
+        _uiUpdateTimer?.Stop();
+        _simulationManager?.Shutdown();
+        base.OnClosed(e);
+    }
+
     private void InitializeSimulation()
     {
         // Generate new random seed if user hasn't explicitly set one
@@ -87,8 +99,17 @@ public partial class MainWindow : Window
             SimHeightTextBox.Text = SimulationCanvas.ActualHeight.ToString("F0");
         }
 
+        // Release the outgoing simulation's audio device. Each SimulationManager owns a
+        // waveOut handle and a feed thread; without this, every Reset leaks both.
+        _simulationManager?.Shutdown();
+
         // Create simulation manager
         _simulationManager = new SimulationManager(SimulationCanvas, _config);
+
+        // Choose the render mode before Initialize builds any visuals. Doing it afterwards
+        // would create a full set of Classic ellipses only to tear them down again.
+        ApplyRenderModeToRenderer(_simulationManager.Renderer);
+
         _simulationManager.Initialize();
 
         // Initialize UI managers
@@ -100,6 +121,9 @@ public partial class MainWindow : Window
 
         // Apply color scheme from UI
         ApplyColorSchemeToParticles();
+
+        // Carry audio settings across the rebuild
+        ApplyAudioSettings();
 
         UpdateInfo();
     }
@@ -164,6 +188,9 @@ public partial class MainWindow : Window
             SizeRatioTextBox = SizeRatioTextBox,
             VisionRangeSlider = VisionRangeSlider,
             VisionRangeTextBox = VisionRangeTextBox,
+            UseAmbientEnergyCheckBox = UseAmbientEnergyCheckBox,
+            AmbientEnergySlider = AmbientEnergySlider,
+            AmbientEnergyTextBox = AmbientEnergyTextBox,
             HungerThresholdSlider = HungerThresholdSlider,
             HungerThresholdTextBox = HungerThresholdTextBox,
 
@@ -546,8 +573,103 @@ public partial class MainWindow : Window
         renderer.ShowEnergyBars = ShowEnergyBarsCheckBox.IsChecked ?? true;
         renderer.TrailLength = (int)(TrailLengthSlider?.Value ?? 15);
 
+        ApplyRenderModeToRenderer(renderer);
+
         // Force a re-render to apply settings
         renderer.Render(_simulationManager.Particles);
+    }
+
+    /// <summary>
+    /// Pushes the render mode and its light settings into the renderer. Kept separate so it
+    /// can also run when a fresh SimulationManager is built on Reset.
+    /// </summary>
+    private void ApplyRenderModeToRenderer(Rendering.ParticleRenderer renderer)
+    {
+        bool luminous = RenderLuminousRadio?.IsChecked ?? false;
+        renderer.Mode = luminous ? Rendering.RenderMode.Luminous : Rendering.RenderMode.Classic;
+
+        renderer.Luminous.Exposure = (float)(ExposureSlider?.Value ?? 1.15);
+        renderer.Luminous.GlowScale = (float)(GlowScaleSlider?.Value ?? 1.0);
+        renderer.Luminous.TrailPersistence = (float)(PersistenceSlider?.Value ?? 0.0);
+    }
+
+    /// <summary>
+    /// Pushes audio settings into the simulation. Separate so it also runs after a Reset
+    /// builds a new SimulationManager (and with it a new audio device).
+    /// </summary>
+    private void ApplyAudioSettings()
+    {
+        if (_simulationManager == null) return;
+
+        var audio = _simulationManager.Audio;
+        audio.Volume = VolumeSlider?.Value ?? 0.6;
+        audio.AmbientEnabled = AmbientDroneCheckBox?.IsChecked ?? true;
+        audio.Enabled = EnableAudioCheckBox?.IsChecked ?? false;
+
+        // Audio is optional: a machine with no output device reports why and carries on
+        if (AudioStatusText != null)
+        {
+            AudioStatusText.Text = (audio.Enabled || !(EnableAudioCheckBox?.IsChecked ?? false))
+                ? string.Empty
+                : audio.FailureReason ?? "Audio could not be started.";
+        }
+    }
+
+    private void AudioToggle_Changed(object sender, RoutedEventArgs e)
+    {
+        if (VolumeSlider == null) return; // still parsing XAML
+        ApplyAudioSettings();
+    }
+
+    private void AudioSetting_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (VolumeValueText == null) return; // still parsing XAML
+        VolumeValueText.Text = VolumeSlider.Value.ToString("F2");
+        ApplyAudioSettings();
+    }
+
+    private void RenderMode_Changed(object sender, RoutedEventArgs e)
+    {
+        // Fires during XAML parse, before the panel and simulation exist
+        if (LuminousSettingsPanel == null) return;
+
+        bool luminous = RenderLuminousRadio?.IsChecked ?? false;
+        LuminousSettingsPanel.Visibility = luminous ? Visibility.Visible : Visibility.Collapsed;
+
+        if (_simulationManager == null) return;
+
+        var renderer = _simulationManager.Renderer;
+        ApplyRenderModeToRenderer(renderer);
+
+        // Classic mode rebuilds its shapes from scratch; Luminous just redraws
+        if (!luminous)
+            renderer.Initialize(_simulationManager.Particles);
+
+        renderer.Render(_simulationManager.Particles);
+    }
+
+    private void LuminousSetting_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        // Each slider raises ValueChanged as XAML parsing reaches it, while controls declared
+        // further down the file are still null. Every field this method touches must be
+        // checked, not just the first one.
+        if (ExposureValueText == null || GlowScaleValueText == null || PersistenceValueText == null)
+            return;
+
+        ExposureValueText.Text = ExposureSlider.Value.ToString("F2");
+        GlowScaleValueText.Text = GlowScaleSlider.Value.ToString("F2");
+        PersistenceValueText.Text = PersistenceSlider.Value.ToString("F2");
+
+        if (_simulationManager == null) return;
+
+        var renderer = _simulationManager.Renderer;
+        renderer.Luminous.Exposure = (float)ExposureSlider.Value;
+        renderer.Luminous.GlowScale = (float)GlowScaleSlider.Value;
+        renderer.Luminous.TrailPersistence = (float)PersistenceSlider.Value;
+
+        // Redraw immediately so the slider feels live even while paused
+        if (!_simulationManager.IsRunning)
+            renderer.Render(_simulationManager.Particles);
     }
 
     private void ApplyColorSchemeToParticles()

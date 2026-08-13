@@ -1,5 +1,6 @@
 using System.Numerics;
 using System.Windows.Media;
+using DotGame.Utilities;
 
 namespace DotGame.Models;
 
@@ -16,23 +17,25 @@ public class ParticleExplosion
     public bool IsComplete => TimeElapsed >= Duration;
     public double Progress => Math.Min(1.0, TimeElapsed / Duration);
 
-    public ParticleExplosion(Particle particle)
+    /// <param name="random">
+    /// Seeded effects stream. Debris scatter is cosmetic but still part of what the user
+    /// sees, so it is reproducible from the simulation seed like everything else.
+    /// </param>
+    public ParticleExplosion(Particle particle, RandomGenerator random)
     {
         ParticleId = particle.Id;
         Position = particle.Position;
         Color = particle.Color;
         Radius = particle.Radius;
         TimeElapsed = 0;
-        Fragments = CreateFragments(particle);
+        Fragments = CreateFragments(particle, random);
     }
 
-    private List<ExplosionFragment> CreateFragments(Particle particle)
+    private List<ExplosionFragment> CreateFragments(Particle particle, RandomGenerator random)
     {
         var fragments = new List<ExplosionFragment>();
         int fragmentCount = (int)(particle.Radius * 2); // More fragments for larger particles
         fragmentCount = Math.Max(8, Math.Min(fragmentCount, 20)); // Between 8-20 fragments
-
-        var random = new Random();
 
         for (int i = 0; i < fragmentCount; i++)
         {

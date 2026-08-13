@@ -49,4 +49,43 @@ public static class GameplayConstants
     // Energy to mass conversion
     public const double ENERGY_TO_MASS_RATIO = 0.1; // 10:1 energy to mass
     public const double MASS_TO_ENERGY_RATIO = 10.0; // 1:10 mass to energy
+
+    // Energy capacity: MaxEnergy = Mass * (BaseEnergyCapacity / ENERGY_CAPACITY_REFERENCE_MASS)
+    public const double ENERGY_CAPACITY_REFERENCE_MASS = 10.0;
+
+    // Speed burst
+    public const double SPEED_BURST_IMPULSE = 1.5;  // Immediate velocity multiplier on activation
+    public const double SPEED_BURST_DURATION = 3.0; // Seconds the raised speed ceiling lasts
+
+    // Splitting: breaking the growth ratchet
+    //
+    // Predation is otherwise a one-way consolidation. A particle that eats grows, its
+    // MaxEnergy grows with its mass, so its energy *percentage* falls - and both the AI's
+    // split trigger and the split cost are expressed as percentages of MaxEnergy. The
+    // result is that the particles most in need of splitting are precisely the ones that
+    // can never afford to, and the population ratchets down into a handful of giants.
+
+    /// <summary>
+    /// Multiple of MaxMass beyond which a particle splits regardless of its energy
+    /// percentage. At this size splitting is unambiguously the right move, so the normal
+    /// "only when comfortably fed" gate is bypassed.
+    /// </summary>
+    public const double OVERGROWN_SPLIT_MASS_RATIO = 2.0;
+
+    /// <summary>
+    /// Ceiling on the splitting energy cost, as a multiple of the cost paid by a particle of
+    /// ReferenceMass. Cost still scales with size up to this point; past it, growth can no
+    /// longer price a particle out of its own escape hatch.
+    /// </summary>
+    public const double SPLIT_COST_CEILING_MULTIPLE = 2.0;
+
+    /// <summary>
+    /// Energy fraction the AI requires before choosing to split at normal sizes.
+    /// </summary>
+    public const double SPLIT_ENERGY_THRESHOLD = 0.6;
+
+    /// <summary>
+    /// Fraction of MaxMass at which the AI starts considering a split at all.
+    /// </summary>
+    public const double SPLIT_MASS_THRESHOLD = 0.7;
 }

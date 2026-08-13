@@ -1,4 +1,4 @@
-using System.Numerics;
+﻿using System.Numerics;
 using DotGame.Models;
 using DotGame.Abilities;
 using DotGame.Rendering;
@@ -8,14 +8,18 @@ namespace DotGame.Physics;
 
 public class PhysicsEngine
 {
+    // Above this many particles the naive O(n^2) sweep is slower than the spatial hash.
+    private const int SPATIAL_PARTITIONING_THRESHOLD = 50;
+
     private readonly SimulationConfig _config;
-    private readonly ICollisionDetector _collisionDetector;
+    private readonly NaiveCollisionDetector _naiveDetector;
+    private readonly SpatialHashGrid _spatialDetector;
     private readonly GravityCalculator _gravityCalculator;
     private readonly BoundaryHandler _boundaryHandler;
     private readonly DampingApplier _dampingApplier;
     private readonly AbilityManager? _abilityManager;
 
-    public PhysicsEngine(SimulationConfig config)
+    public PhysicsEngine(SimulationConfig config, ParticleIdGenerator idGenerator)
     {
         _config = config;
         _gravityCalculator = new GravityCalculator(config);
@@ -25,23 +29,27 @@ public class PhysicsEngine
         // Initialize ability manager if abilities are enabled
         if (_config.UseAbilities)
         {
-            _abilityManager = new AbilityManager(config);
+            _abilityManager = new AbilityManager(config, idGenerator);
         }
 
-        // Choose collision detector based on config and particle count
-        // Use spatial partitioning for >50 particles if enabled
-        if (_config.UseSpatialPartitioning && _config.ParticleCount > 50)
-        {
-            _collisionDetector = new SpatialHashGrid(config, config.MaxRadius);
-        }
-        else
-        {
-            _collisionDetector = new NaiveCollisionDetector(config);
-        }
+        // Both detectors are kept live; the choice is made per frame from the *current*
+        // population, which grows and shrinks as particles breed, split and get eaten.
+        _naiveDetector = new NaiveCollisionDetector(config);
+        _spatialDetector = new SpatialHashGrid(config, config.MaxRadius);
     }
 
-    public void Update(List<Particle> particles, double deltaTime, ParticleRenderer? renderer = null)
+    private ICollisionDetector SelectCollisionDetector(int particleCount)
     {
+        return _config.UseSpatialPartitioning && particleCount > SPATIAL_PARTITIONING_THRESHOLD
+            ? _spatialDetector
+            : _naiveDetector;
+    }
+
+    public void Update(List<Particle> particles, double deltaTime, ParticleRenderer? renderer = null,
+        DotGame.Audio.SimulationAudio? audio = null)
+    {
+        var collisionDetector = SelectCollisionDetector(particles.Count);
+
         // 0. Update abilities (before physics)
         if (_config.UseAbilities && _abilityManager != null)
         {
@@ -50,10 +58,11 @@ public class PhysicsEngine
                 AllParticles = particles,
                 Config = _config,
                 DeltaTime = deltaTime,
-                SpatialGrid = _collisionDetector as SpatialHashGrid,
+                SpatialGrid = collisionDetector as SpatialHashGrid,
                 ParticlesToAdd = new List<Particle>(),
                 ParticlesToRemove = new HashSet<int>(),
-                Renderer = renderer
+                Renderer = renderer,
+                Audio = audio
             };
 
             _abilityManager.UpdateAbilities(particles, context);
@@ -84,7 +93,7 @@ public class PhysicsEngine
         if (_config.UseCollisions)
         {
             // Skip phasing particles in collisions
-            _collisionDetector.DetectAndResolve(particles);
+            collisionDetector.DetectAndResolve(particles);
         }
     }
 
@@ -98,7 +107,10 @@ public class PhysicsEngine
             // Store previous position for potential use
             particle.PreviousPosition = particle.Position;
 
-            // Apply speed multipliers (both speed boost and energy-based)
+            // Speed multipliers raise or lower the particle's *speed ceiling*; they are not
+            // applied to the position step as well. Doing both would square their effect and
+            // would also mean the particle travelled at a different speed than the one the
+            // collision and gravity code sees.
             float velocityMultiplier = 1.0f;
             if (particle.HasAbilities)
             {
@@ -119,10 +131,9 @@ public class PhysicsEngine
                 particle.Velocity = Vector2.Normalize(particle.Velocity) * effectiveMaxVelocity;
             }
 
-            // Semi-implicit Euler integration
-            // Velocity has already been updated by forces
-            // Now update position based on velocity (with all multipliers applied)
-            particle.Position += particle.Velocity * velocityMultiplier * dt;
+            // Semi-implicit Euler integration.
+            // Velocity has already been updated by forces; advance position by it.
+            particle.Position += particle.Velocity * dt;
         }
     }
 }

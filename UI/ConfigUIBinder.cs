@@ -1,4 +1,4 @@
-using System.Windows.Controls;
+﻿using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using DotGame.Models;
 
@@ -141,8 +141,13 @@ public class ConfigUIBinder
         if (double.TryParse(_controls.PassiveDrainTextBox.Text, out double passiveDrain))
             _config.PassiveEnergyDrain = passiveDrain;
 
+        _config.UseAmbientEnergy = _controls.UseAmbientEnergyCheckBox.IsChecked ?? true;
+
+        if (double.TryParse(_controls.AmbientEnergyTextBox.Text, out double ambientGain))
+            _config.AmbientEnergyGainRate = ambientGain;
+
         if (double.TryParse(_controls.EatingGainTextBox.Text, out double eatingGain))
-            _config.EatingEnergyGain = eatingGain;
+            _config.EatingEnergyTransfer = eatingGain;
 
         if (double.TryParse(_controls.SizeRatioTextBox.Text, out double sizeRatio))
             _config.SizeRatioForEating = sizeRatio;
@@ -172,7 +177,7 @@ public class ConfigUIBinder
     private void UpdateSplittingParameters()
     {
         if (double.TryParse(_controls.SplittingEnergyCostTextBox.Text, out double splittingEnergyCost))
-            _config.SplittingEnergyCost = splittingEnergyCost;
+            _config.SplittingEnergyCostPercent = splittingEnergyCost;
 
         if (double.TryParse(_controls.SplittingCooldownTextBox.Text, out double splittingCooldown))
             _config.SplittingCooldown = splittingCooldown;
@@ -184,7 +189,7 @@ public class ConfigUIBinder
     private void UpdateReproductionParameters()
     {
         if (double.TryParse(_controls.ReproductionEnergyCostTextBox.Text, out double reproductionEnergyCost))
-            _config.ReproductionEnergyCost = reproductionEnergyCost;
+            _config.ReproductionEnergyCostPercent = reproductionEnergyCost;
 
         if (double.TryParse(_controls.ReproductionCooldownTextBox.Text, out double reproductionCooldown))
             _config.ReproductionCooldown = reproductionCooldown;
@@ -193,13 +198,13 @@ public class ConfigUIBinder
             _config.ReproductionMassTransfer = reproductionMassTransfer;
 
         if (double.TryParse(_controls.ReproductionEnergyTransferTextBox.Text, out double reproductionEnergyTransfer))
-            _config.ReproductionEnergyTransfer = reproductionEnergyTransfer;
+            _config.ReproductionEnergyTransferMaxPercent = reproductionEnergyTransfer;
     }
 
     private void UpdatePhasingParameters()
     {
         if (double.TryParse(_controls.PhasingEnergyCostTextBox.Text, out double phasingEnergyCost))
-            _config.PhasingEnergyCost = phasingEnergyCost;
+            _config.PhasingEnergyCostPercent = phasingEnergyCost;
 
         if (double.TryParse(_controls.PhasingCooldownTextBox.Text, out double phasingCooldown))
             _config.PhasingCooldown = phasingCooldown;
@@ -327,8 +332,11 @@ public class ConfigUIBinder
         _controls.BaseEnergyTextBox.Text = _config.BaseEnergyCapacity.ToString();
         _controls.PassiveDrainSlider.Value = _config.PassiveEnergyDrain;
         _controls.PassiveDrainTextBox.Text = _config.PassiveEnergyDrain.ToString();
-        _controls.EatingGainSlider.Value = _config.EatingEnergyGain;
-        _controls.EatingGainTextBox.Text = _config.EatingEnergyGain.ToString();
+        _controls.UseAmbientEnergyCheckBox.IsChecked = _config.UseAmbientEnergy;
+        _controls.AmbientEnergySlider.Value = _config.AmbientEnergyGainRate;
+        _controls.AmbientEnergyTextBox.Text = _config.AmbientEnergyGainRate.ToString();
+        _controls.EatingGainSlider.Value = _config.EatingEnergyTransfer;
+        _controls.EatingGainTextBox.Text = _config.EatingEnergyTransfer.ToString();
         _controls.SizeRatioSlider.Value = _config.SizeRatioForEating;
         _controls.SizeRatioTextBox.Text = _config.SizeRatioForEating.ToString();
         _controls.VisionRangeSlider.Value = _config.VisionRangeMultiplier;
@@ -351,7 +359,7 @@ public class ConfigUIBinder
 
     private void PopulateSplittingParameters()
     {
-        _controls.SplittingEnergyCostTextBox.Text = _config.SplittingEnergyCost.ToString();
+        _controls.SplittingEnergyCostTextBox.Text = _config.SplittingEnergyCostPercent.ToString();
         _controls.SplittingCooldownSlider.Value = _config.SplittingCooldown;
         _controls.SplittingCooldownTextBox.Text = _config.SplittingCooldown.ToString();
         _controls.SplittingSeparationTextBox.Text = _config.SplittingSeparationForce.ToString();
@@ -359,16 +367,16 @@ public class ConfigUIBinder
 
     private void PopulateReproductionParameters()
     {
-        _controls.ReproductionEnergyCostTextBox.Text = _config.ReproductionEnergyCost.ToString();
+        _controls.ReproductionEnergyCostTextBox.Text = _config.ReproductionEnergyCostPercent.ToString();
         _controls.ReproductionCooldownSlider.Value = _config.ReproductionCooldown;
         _controls.ReproductionCooldownTextBox.Text = _config.ReproductionCooldown.ToString();
         _controls.ReproductionMassTransferTextBox.Text = _config.ReproductionMassTransfer.ToString();
-        _controls.ReproductionEnergyTransferTextBox.Text = _config.ReproductionEnergyTransfer.ToString();
+        _controls.ReproductionEnergyTransferTextBox.Text = _config.ReproductionEnergyTransferMaxPercent.ToString();
     }
 
     private void PopulatePhasingParameters()
     {
-        _controls.PhasingEnergyCostTextBox.Text = _config.PhasingEnergyCost.ToString();
+        _controls.PhasingEnergyCostTextBox.Text = _config.PhasingEnergyCostPercent.ToString();
         _controls.PhasingCooldownSlider.Value = _config.PhasingCooldown;
         _controls.PhasingCooldownTextBox.Text = _config.PhasingCooldown.ToString();
         _controls.PhasingDurationSlider.Value = _config.PhasingDuration;
@@ -482,6 +490,9 @@ public class UIControlCollection
     public required TextBox SizeRatioTextBox { get; init; }
     public required Slider VisionRangeSlider { get; init; }
     public required TextBox VisionRangeTextBox { get; init; }
+    public required CheckBox UseAmbientEnergyCheckBox { get; init; }
+    public required Slider AmbientEnergySlider { get; init; }
+    public required TextBox AmbientEnergyTextBox { get; init; }
     public required Slider HungerThresholdSlider { get; init; }
     public required TextBox HungerThresholdTextBox { get; init; }
 

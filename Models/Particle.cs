@@ -26,8 +26,10 @@ public class Particle
 
     // Computed properties for abilities
     public bool HasAbilities => Abilities != null;
-    public double EnergyPercentage => HasAbilities ? Abilities.Energy / Abilities.MaxEnergy : 1.0;
-    public bool IsHungry => HasAbilities && Abilities.Energy < Abilities.MaxEnergy * 0.3;
+    public double EnergyPercentage => HasAbilities && Abilities.MaxEnergy > 0
+        ? Abilities.Energy / Abilities.MaxEnergy
+        : 1.0;
+    public bool IsHungry => HasAbilities && EnergyPercentage < Abilities.HungerThreshold;
     public bool IsAlive => !HasAbilities || Abilities.IsAlive;
 
     public Particle()

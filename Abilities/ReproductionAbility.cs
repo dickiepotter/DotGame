@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Numerics;
 using DotGame.Models;
 using DotGame.Utilities;
@@ -9,18 +9,30 @@ namespace DotGame.Abilities;
 public class ReproductionAbility : IAbility
 {
     private readonly SimulationConfig _config;
-    private static int _nextParticleId = REPRODUCTION_PARTICLE_ID_START;
     private readonly RandomGenerator _random;
+    private readonly ParticleIdGenerator _idGenerator;
 
-    public ReproductionAbility(SimulationConfig config)
+    public ReproductionAbility(SimulationConfig config, RandomGenerator random, ParticleIdGenerator idGenerator)
     {
         _config = config;
-        _random = new RandomGenerator(config.RandomSeed + 1); // Offset seed
+        _random = random;
+        _idGenerator = idGenerator;
     }
 
     public AbilityType Type => AbilityType.Reproduction;
-    public double EnergyCost => _config.ReproductionEnergyCost;
+
+    // The real cost is a percentage of the particle's own capacity, charged in
+    // CanExecute/Execute rather than through this flat interface value.
+    public double EnergyCost => 0;
     public double CooldownDuration => _config.ReproductionCooldown;
+
+    /// <summary>
+    /// Energy cost of bearing offspring. Types with a reproduction affinity (Herbivore,
+    /// Social) pay proportionally less - this is what GetReproductionMult is for.
+    /// </summary>
+    private static double CostFor(ParticleAbilities abilities, SimulationConfig config) =>
+        abilities.MaxEnergy * config.ReproductionEnergyCostPercent
+            * abilities.GetEnergyCostMult() / abilities.GetReproductionMult();
 
     public bool CanExecute(Particle particle, AbilityContext context)
     {
@@ -35,7 +47,7 @@ public class ReproductionAbility : IAbility
         if (particle.Mass - massToGive < minMass) return false;
 
         // Check energy requirement
-        if (particle.Abilities!.Energy < EnergyCost) return false;
+        if (particle.Abilities!.Energy < CostFor(particle.Abilities, _config)) return false;
 
         // Check particle limit
         if (context.AllParticles.Count + context.ParticlesToAdd.Count >= _config.MaxParticles)
@@ -49,7 +61,7 @@ public class ReproductionAbility : IAbility
         if (!particle.HasAbilities) return;
 
         // Cost energy
-        particle.Abilities!.Energy -= EnergyCost;
+        particle.Abilities!.Energy -= CostFor(particle.Abilities, _config);
 
         // Store original values
         double originalMass = particle.Mass;
@@ -64,7 +76,11 @@ public class ReproductionAbility : IAbility
             _config.ReproductionMassTransferMax);
         double massToGive = originalMass * massTransferPercent;
 
-        // Calculate random energy transfer (between min and max percentage)
+        // Calculate random energy transfer (between min and max percentage).
+        // This is drawn exactly ONCE and is the single source of truth for the transfer:
+        // whatever the parent loses is what the offspring receives. Previously Execute and
+        // InheritAbilities each drew their own percentage, so the two never agreed and
+        // energy silently vanished on every birth.
         double energyTransferPercent = _random.NextDouble(
             _config.ReproductionEnergyTransferMin,
             _config.ReproductionEnergyTransferMaxPercent);
@@ -81,20 +97,18 @@ public class ReproductionAbility : IAbility
         // Update parent mass and radius
         particle.Mass = parentNewMass;
         particle.Radius = originalRadius * Math.Sqrt(parentNewMass / originalMass);
-        particle.Abilities.MaxEnergy = parentNewMass * (_config.BaseEnergyCapacity / 10.0);
+        particle.Abilities.MaxEnergy = _config.EnergyCapacityForMass(parentNewMass);
 
         // Update parent energy (loses the energy given to child)
-        particle.Abilities.Energy = originalEnergy - energyToGive;
-
-        // Clamp parent energy to new max
-        if (particle.Abilities.Energy > particle.Abilities.MaxEnergy)
-            particle.Abilities.Energy = particle.Abilities.MaxEnergy;
+        particle.Abilities.Energy = Math.Min(
+            originalEnergy - energyToGive,
+            particle.Abilities.MaxEnergy);
 
         // Create offspring particle
         double offspringRadius = Math.Sqrt(offspringMass / originalMass) * originalRadius;
         var offspring = new Particle
         {
-            Id = System.Threading.Interlocked.Increment(ref _nextParticleId),
+            Id = _idGenerator.Next(),
             Position = originalPosition,
             Velocity = originalVelocity,
             Mass = offspringMass,
@@ -103,8 +117,8 @@ public class ReproductionAbility : IAbility
             PreviousPosition = originalPosition
         };
 
-        // Inherit abilities from parent (with some randomness)
-        offspring.Abilities = InheritAbilities(particle.Abilities, offspringMass);
+        // Inherit abilities from parent, carrying exactly the energy the parent gave up
+        offspring.Abilities = InheritAbilities(particle.Abilities, offspringMass, energyToGive, offspringRadius);
 
         // Mark offspring as birthing (invulnerable during animation)
         offspring.Abilities.IsBirthing = true;
@@ -115,12 +129,13 @@ public class ReproductionAbility : IAbility
         particle.Color = Utilities.ColorGenerator.GetColorForAbilities(particle.Abilities);
         offspring.Color = Utilities.ColorGenerator.GetColorForAbilities(offspring.Abilities);
 
-        // Apply separation impulse to push particles apart
-        Vector2 separationDirection = GenerateRandomDirection();
-        float separationForce = (float)_config.SplittingSeparationForce * 0.8f; // Slightly less force
+        // Apply separation impulse to push particles apart. Equal and opposite impulses
+        // divided by mass, so birth does not create net momentum for the pair.
+        Vector2 separationDirection = _random.NextUnitVector();
+        float separationImpulse = (float)_config.SplittingSeparationForce * 0.8f; // Gentler than a split
 
-        particle.Velocity += separationDirection * separationForce * 0.5f;
-        offspring.Velocity -= separationDirection * separationForce;
+        particle.Velocity += separationDirection * separationImpulse * (float)particle.InverseMass;
+        offspring.Velocity -= separationDirection * separationImpulse * (float)offspring.InverseMass;
 
         // Ensure particles don't overlap by offsetting positions
         float offset = (float)(particle.Radius + offspring.Radius) * 0.6f;
@@ -130,6 +145,8 @@ public class ReproductionAbility : IAbility
         // Clamp positions to boundaries
         ClampToBoundaries(particle);
         ClampToBoundaries(offspring);
+
+        context.Audio?.Birth(offspring);
 
         // Add offspring to context
         context.ParticlesToAdd.Add(offspring);
@@ -145,25 +162,26 @@ public class ReproductionAbility : IAbility
         }
     }
 
-    private ParticleAbilities InheritAbilities(ParticleAbilities parent, double offspringMass)
+    private ParticleAbilities InheritAbilities(ParticleAbilities parent, double offspringMass,
+        double transferredEnergy, double offspringRadius)
     {
         var offspring = new ParticleAbilities
         {
-            MaxEnergy = offspringMass * (_config.BaseEnergyCapacity / 10.0),
+            MaxEnergy = _config.EnergyCapacityForMass(offspringMass),
             Type = parent.Type,
             Generation = parent.Generation + 1,
             Abilities = AbilitySet.None,
             CurrentState = AbilityState.Idle,
-            VisionRange = 0
+            HungerThreshold = parent.HungerThreshold,
+            MovementSpeedMultiplier = 1.0
         };
 
-        // Calculate energy for offspring: random percentage of parent's energy + random percentage of parent's mass converted to energy
-        double baseEnergyTransfer = _random.NextDouble(
-            _config.ReproductionEnergyTransferMin,
-            _config.ReproductionEnergyTransferMaxPercent) * parent.Energy;
+        // The offspring receives exactly the energy the parent gave up. Any surplus beyond
+        // the offspring's smaller capacity is lost as the metabolic cost of birth.
+        offspring.Energy = Math.Min(transferredEnergy, offspring.MaxEnergy);
 
-        // Cap energy at offspring's max energy
-        offspring.Energy = Math.Min(baseEnergyTransfer, offspring.MaxEnergy);
+        // Vision scales with radius, matching VisionSystem.CalculateVisionRange
+        offspring.VisionRange = offspringRadius * _config.VisionRangeMultiplier;
 
         // Inherit thresholds with random variance
         double variance = _config.ThresholdInheritanceVariance;
@@ -203,6 +221,9 @@ public class ReproductionAbility : IAbility
         if (parent.HasAbility(AbilitySet.Flee) && _random.NextDouble(0, 1) < ABILITY_INHERITANCE_CHANCE)
             offspring.Abilities |= AbilitySet.Flee;
 
+        if (parent.HasAbility(AbilitySet.SpeedBurst) && _random.NextDouble(0, 1) < ABILITY_INHERITANCE_CHANCE)
+            offspring.Abilities |= AbilitySet.SpeedBurst;
+
         // Initialize cooldowns for inherited abilities
         offspring.Cooldowns = new System.Collections.Generic.Dictionary<AbilityType, CooldownTimer>();
 
@@ -227,17 +248,7 @@ public class ReproductionAbility : IAbility
         if (offspring.HasAbility(AbilitySet.Flee))
             offspring.InitializeCooldown(AbilityType.Flee, _config.FleeCooldown);
 
-        // Calculate initial vision range
-        offspring.VisionRange = offspringMass * _config.VisionRangeMultiplier;
-
         return offspring;
-    }
-
-    private Vector2 GenerateRandomDirection()
-    {
-        // Generate random angle
-        double angle = _random.NextDouble(0, 1) * Math.PI * 2.0;
-        return new Vector2((float)Math.Cos(angle), (float)Math.Sin(angle));
     }
 
     private void ClampToBoundaries(Particle particle)

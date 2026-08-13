@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using DotGame.Models;
+using DotGame.Utilities;
 
 namespace DotGame.Abilities;
 
@@ -98,18 +99,19 @@ public class EnergyManager
 
         if (actualConversion > 0)
         {
+            double oldMass = particle.Mass;
             abilities.Energy -= actualConversion;
-            double massGain = actualConversion * 0.1; // Conversion rate: 10:1 energy to mass
+            double massGain = actualConversion * GameplayConstants.ENERGY_TO_MASS_RATIO;
             particle.Mass += massGain;
 
             // Store previous radius for growth visualization
             particle.PreviousRadius = particle.Radius;
 
-            // Update radius based on new mass
-            particle.Radius = Math.Sqrt(particle.Mass / (particle.Mass - massGain)) * particle.Radius;
+            // Radius tracks mass so that density stays constant (area proportional to mass)
+            particle.Radius = Math.Sqrt(particle.Mass / oldMass) * particle.Radius;
 
             // Update max energy based on new mass
-            abilities.MaxEnergy = particle.Mass * (_config.BaseEnergyCapacity / 10.0);
+            abilities.MaxEnergy = _config.EnergyCapacityForMass(particle.Mass);
         }
     }
 
@@ -126,7 +128,7 @@ public class EnergyManager
         {
             double oldMass = particle.Mass;
             particle.Mass -= actualConversion;
-            double energyGain = actualConversion * 10.0; // Conversion rate: 1:10 mass to energy
+            double energyGain = actualConversion * GameplayConstants.MASS_TO_ENERGY_RATIO;
 
             // Store previous radius for shrinkage visualization
             particle.PreviousRadius = particle.Radius;
@@ -135,7 +137,7 @@ public class EnergyManager
             particle.Radius = Math.Sqrt(particle.Mass / oldMass) * particle.Radius;
 
             // Update max energy based on new mass
-            abilities.MaxEnergy = particle.Mass * (_config.BaseEnergyCapacity / 10.0);
+            abilities.MaxEnergy = _config.EnergyCapacityForMass(particle.Mass);
 
             // Add energy (clamped to max)
             abilities.Energy = Math.Min(abilities.MaxEnergy, abilities.Energy + energyGain);

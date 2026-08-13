@@ -12,9 +12,16 @@ public static class ParticleQueryUtility
     /// <summary>
     /// Finds the closest edible prey particle within detection range.
     /// </summary>
-    public static Particle? FindEdiblePrey(Particle predator, List<Particle> allParticles, SimulationConfig config)
+    /// <param name="claimedIds">
+    /// Particles already consumed or removed earlier in this frame. Without this, two
+    /// predators overlapping the same prey would each absorb its full mass and energy,
+    /// creating matter out of nothing.
+    /// </param>
+    public static Particle? FindEdiblePrey(Particle predator, List<Particle> allParticles, SimulationConfig config,
+        HashSet<int>? claimedIds = null)
     {
         if (!predator.IsAlive) return null;
+        if (claimedIds != null && claimedIds.Contains(predator.Id)) return null;
 
         Particle? closestPrey = null;
         float closestDistance = float.MaxValue;
@@ -27,6 +34,7 @@ public static class ParticleQueryUtility
         {
             if (prey.Id == predator.Id) continue;
             if (!prey.IsAlive) continue;
+            if (claimedIds != null && claimedIds.Contains(prey.Id)) continue;
 
             // Cannot eat particles that are being born
             if (prey.HasAbilities && prey.Abilities.IsBirthing)
@@ -55,7 +63,8 @@ public static class ParticleQueryUtility
     /// <summary>
     /// Finds the closest chase target (smaller particle that can be eaten) within vision range.
     /// </summary>
-    public static Particle? FindChaseTarget(Particle hunter, List<Particle> allParticles, SimulationConfig config)
+    public static Particle? FindChaseTarget(Particle hunter, List<Particle> allParticles, SimulationConfig config,
+        HashSet<int>? claimedIds = null)
     {
         if (!hunter.HasAbilities || !hunter.IsAlive) return null;
 
@@ -66,6 +75,7 @@ public static class ParticleQueryUtility
         {
             if (target.Id == hunter.Id) continue;
             if (!target.IsAlive) continue;
+            if (claimedIds != null && claimedIds.Contains(target.Id)) continue;
 
             // Only chase particles that can be eaten
             if (!CanEat(hunter, target, config))
@@ -88,25 +98,39 @@ public static class ParticleQueryUtility
     }
 
     /// <summary>
-    /// Finds the closest threat (larger particle that can eat this particle) within visible particles.
+    /// Finds the closest threat (larger particle that can eat this particle) within vision range.
     /// </summary>
-    public static Particle? FindThreat(Particle particle, List<Particle> visibleParticles, SimulationConfig config)
+    /// <remarks>
+    /// The range check matters: callers pass the full particle list as often as they pass a
+    /// pre-filtered visible set, and without it a particle would react to predators on the
+    /// far side of the map that it has no way of perceiving.
+    /// </remarks>
+    public static Particle? FindThreat(Particle particle, List<Particle> candidateParticles, SimulationConfig config)
     {
         if (!particle.IsAlive) return null;
 
         Particle? closestThreat = null;
         float closestDistance = float.MaxValue;
 
-        foreach (var threat in visibleParticles)
+        double visionRange = particle.HasAbilities
+            ? particle.Abilities.VisionRange
+            : particle.Radius * GameplayConstants.DEFAULT_DETECTION_RANGE_MULTIPLIER;
+
+        foreach (var threat in candidateParticles)
         {
             if (threat.Id == particle.Id) continue;
             if (!threat.IsAlive) continue;
+
+            // Camouflaged predators are much harder to spot
+            double effectiveRange = visionRange;
+            if (threat.HasAbilities && threat.Abilities.IsCamouflaged)
+                effectiveRange *= CAMOUFLAGE_VISIBILITY_FACTOR;
 
             // A particle is a threat if it can eat this particle
             if (CanEat(threat, particle, config))
             {
                 float distance = Vector2.Distance(particle.Position, threat.Position);
-                if (distance < closestDistance)
+                if (distance <= effectiveRange && distance < closestDistance)
                 {
                     closestDistance = distance;
                     closestThreat = threat;
@@ -116,6 +140,11 @@ public static class ParticleQueryUtility
 
         return closestThreat;
     }
+
+    /// <summary>
+    /// Fraction of normal vision range at which a camouflaged particle can be detected.
+    /// </summary>
+    public const double CAMOUFLAGE_VISIBILITY_FACTOR = 0.3;
 
     /// <summary>
     /// Gets all particles visible to the observer within their vision range.
@@ -132,12 +161,13 @@ public static class ParticleQueryUtility
             if (other.Id == observer.Id) continue;
             if (!other.IsAlive) continue;
 
-            // Skip camouflaged particles (if camouflage is implemented)
+            // Camouflaged particles must be much closer before they are spotted
+            double effectiveRange = visionRange;
             if (other.HasAbilities && other.Abilities.IsCamouflaged)
-                continue;
+                effectiveRange *= CAMOUFLAGE_VISIBILITY_FACTOR;
 
             float distance = Vector2.Distance(observer.Position, other.Position);
-            if (distance <= visionRange)
+            if (distance <= effectiveRange)
             {
                 visibleParticles.Add(other);
             }

@@ -1,4 +1,4 @@
-namespace DotGame.Models;
+﻿namespace DotGame.Models;
 
 public static class ConfigurationPresets
 {
@@ -22,7 +22,6 @@ public static class ConfigurationPresets
             // High energy, fast reproduction
             BaseEnergyCapacity = 150.0,
             PassiveEnergyDrain = 0.3, // Lower drain
-            EatingEnergyGain = 0.9,
 
             // All abilities enabled with high probabilities
             UseAbilities = true,
@@ -55,7 +54,7 @@ public static class ConfigurationPresets
             // Reproduction (wide random ranges)
             ReproductionMassTransferMin = 0.15,
             ReproductionMassTransferMax = 0.45,
-            SplittingOffspringEnergyPercentage = 0.9,
+            SplittingOffspringEnergyPercentage = 0.65, // offspring-favoured split
 
             // Balanced type distribution
             PredatorProbability = 0.3,
@@ -80,7 +79,6 @@ public static class ConfigurationPresets
             // Scarce energy - survival challenge
             BaseEnergyCapacity = 80.0,
             PassiveEnergyDrain = 1.2, // High drain!
-            EatingEnergyGain = 0.6, // Lower gain
 
             // Eating focused
             UseAbilities = true,
@@ -116,7 +114,7 @@ public static class ConfigurationPresets
             // Reproduction (narrow ranges, expensive)
             ReproductionMassTransferMin = 0.25,
             ReproductionMassTransferMax = 0.35,
-            SplittingOffspringEnergyPercentage = 0.6,
+            SplittingOffspringEnergyPercentage = 0.50, // even split
 
             // Predator heavy
             PredatorProbability = 0.6,
@@ -141,7 +139,6 @@ public static class ConfigurationPresets
             // Plenty of energy
             BaseEnergyCapacity = 200.0,
             PassiveEnergyDrain = 0.2, // Very low drain
-            EatingEnergyGain = 0.9,
             UseAmbientEnergy = true,
             AmbientEnergyGainRate = 0.8, // Higher ambient gain
 
@@ -182,7 +179,7 @@ public static class ConfigurationPresets
             ReproductionMassTransferMax = 0.4,
             ReproductionEnergyTransferMin = 0.4,
             ReproductionEnergyTransferMaxPercent = 0.7,
-            SplittingOffspringEnergyPercentage = 0.85,
+            SplittingOffspringEnergyPercentage = 0.60, // offspring-favoured split
 
             // Herbivore and social heavy
             PredatorProbability = 0.0,
@@ -237,7 +234,7 @@ public static class ConfigurationPresets
             // Clear, simple setup
             BaseEnergyCapacity = 100.0,
             PassiveEnergyDrain = 0.4,
-            EatingEnergyGain = 0.8,
+            EatingEnergyTransfer = 0.8,
 
             // Limited abilities for learning
             UseAbilities = true,
@@ -276,7 +273,6 @@ public static class ConfigurationPresets
             // Extremely high energy - particles rarely die
             BaseEnergyCapacity = 300.0,
             PassiveEnergyDrain = 0.1, // Minimal drain
-            EatingEnergyGain = 0.95,
             UseAmbientEnergy = true,
             AmbientEnergyGainRate = 1.5, // Strong ambient energy
 
@@ -324,7 +320,7 @@ public static class ConfigurationPresets
             ReproductionMassTransferMax = 0.3,
             ReproductionEnergyTransferMin = 0.3,
             ReproductionEnergyTransferMaxPercent = 0.6,
-            SplittingOffspringEnergyPercentage = 0.9,
+            SplittingOffspringEnergyPercentage = 0.65, // offspring-favoured split
 
             // Balanced distribution - no predator dominance
             PredatorProbability = 0.2,
@@ -356,7 +352,6 @@ public static class ConfigurationPresets
             // Moderate energy
             BaseEnergyCapacity = 60.0,
             PassiveEnergyDrain = 0.4,
-            EatingEnergyGain = 0.85,
 
             // High activity
             UseAbilities = true,
@@ -417,7 +412,6 @@ public static class ConfigurationPresets
             // High energy capacity (giants have reserves)
             BaseEnergyCapacity = 250.0,
             PassiveEnergyDrain = 0.8, // Higher drain (big bodies)
-            EatingEnergyGain = 0.85,
 
             // All abilities
             UseAbilities = true,
@@ -487,7 +481,6 @@ public static class ConfigurationPresets
             // Good energy
             BaseEnergyCapacity = 150.0,
             PassiveEnergyDrain = 0.3,
-            EatingEnergyGain = 0.85,
             UseAmbientEnergy = true,
             AmbientEnergyGainRate = 0.5,
 
@@ -538,7 +531,6 @@ public static class ConfigurationPresets
             // High energy for constant hunting
             BaseEnergyCapacity = 120.0,
             PassiveEnergyDrain = 0.6,
-            EatingEnergyGain = 0.9,
 
             // Predation focused
             UseAbilities = true,
@@ -588,7 +580,7 @@ public static class ConfigurationPresets
             // Reproduction
             ReproductionMassTransferMin = 0.2,
             ReproductionMassTransferMax = 0.35,
-            SplittingOffspringEnergyPercentage = 0.7,
+            SplittingOffspringEnergyPercentage = 0.55, // slightly offspring-favoured split
 
             // Predator dominated
             PredatorProbability = 0.7,
