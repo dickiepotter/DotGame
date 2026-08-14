@@ -1,0 +1,12 @@
+[submodule "extern/Math"]
+	path = extern/Math
+	url = https://github.com/dickiepotter/Math.git
+	branch = master
+[submodule "extern/Game"]
+	path = extern/Game
+	url = https://github.com/dickiepotter/Game.git
+	branch = main
+[submodule "extern/Sound"]
+	path = extern/Sound
+	url = https://github.com/dickiepotter/RP.Sound.git
+	branch = main

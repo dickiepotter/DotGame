@@ -115,28 +115,58 @@ subsequent value elsewhere.
 ```
 DotGame/
 ├── Models/              # Core data structures
-│   ├── Particle.cs      # Particle properties (position, velocity, mass, etc.)
-│   └── SimulationConfig.cs  # Configuration settings
+│   ├── Particle.cs              # Position, velocity, mass, colour, abilities
+│   ├── ParticleAbilities.cs     # Per-particle energy and ability state
+│   ├── SimulationConfig.cs      # Configuration settings
+│   └── ConfigurationPresets.cs  # Named starting scenarios
 ├── Physics/             # Physics simulation engine
-│   ├── PhysicsEngine.cs     # Main coordinator
-│   ├── GravityCalculator.cs # N-body gravity
-│   ├── BoundaryHandler.cs   # Wall collisions
-│   ├── DampingApplier.cs    # Velocity damping
-│   ├── ICollisionDetector.cs        # Collision interface
-│   ├── NaiveCollisionDetector.cs    # O(n²) collision detection
-│   └── SpatialHashGrid.cs           # O(n) optimized collision
+│   ├── PhysicsEngine.cs         # Main coordinator
+│   ├── GravityCalculator.cs     # N-body gravity
+│   ├── BoundaryHandler.cs       # Wall collisions
+│   ├── DampingApplier.cs        # Velocity damping
+│   ├── ICollisionDetector.cs    # Collision interface
+│   ├── NaiveCollisionDetector.cs# O(n²) collision detection
+│   └── SpatialHashGrid.cs       # O(n) optimized collision
+├── Abilities/           # What particles can do, one file per ability
+│   ├── IAbility.cs              # Contract + AbilityContext
+│   ├── AbilityManager.cs        # Selection, execution and state, split three ways
+│   └── Eating/Reproduction/Splitting/Phasing/SpeedBurst/Chase/Flee
+├── AI/                  # Ability choice
+│   ├── ParticleAI.cs            # Picks an ability from what is visible
+│   └── VisionSystem.cs          # What a particle can see
 ├── Rendering/           # WPF Canvas rendering
-│   └── ParticleRenderer.cs  # Manages visual elements
+│   ├── ParticleRenderer.cs      # Coordinator over six sub-renderers
+│   └── LightField.cs …          # The Luminous HDR path
 ├── Simulation/          # Simulation management
-│   ├── SimulationManager.cs # Game loop coordinator
-│   ├── ParticleFactory.cs   # Random particle generation
-│   └── RandomGenerator.cs   # Seeded random wrapper
-├── Utilities/           # Helper classes
-│   └── ColorGenerator.cs    # Color generation
-└── Views/               # WPF UI
-    ├── MainWindow.xaml      # Main window layout
-    └── MainWindow.xaml.cs   # UI code-behind
+│   ├── SimulationManager.cs     # Game loop coordinator
+│   └── ParticleFactory.cs       # Random particle generation
+├── Audio/               # Sound, on top of RP.Sound
+│   ├── SimulationAudio.cs       # Events -> sounds; mass -> pitch, position -> pan
+│   ├── SoundPalette.cs          # Bakes the RP.Sound palette at start-up
+│   └── WaveOutDevice.cs         # WinMM output device
+├── UI/                  # Input and binding
+├── Utilities/           # Helper classes, constants, seeded random
+├── Views/               # WPF UI
+│   ├── MainWindow.xaml          # Main window layout
+│   └── MainWindow.xaml.cs       # UI code-behind
+└── extern/              # Shared libraries, as git submodules
+    ├── Math/                    # RP.Math
+    ├── Game/                    # RP.Game (engine) and RP.Game.Silk (Vulkan/OpenAL)
+    └── Sound/                   # RP.Sound
 ```
+
+The three libraries under `extern/` are separate repositories, checked out as siblings so their
+own relative project references resolve. A fresh clone needs them pulled down too:
+
+```bash
+git clone --recurse-submodules https://github.com/dickiepotter/DotGame.git
+# or, in an existing clone:
+git submodule update --init --recursive
+```
+
+This project references `RP.Game`, not `RP.Game.Silk` — the engine half carries no Vulkan, no
+OpenAL and no shader-compilation build step, which is what makes it reasonable for a 2D WPF
+application to depend on at all.
 
 ## Physics Implementation
 
@@ -308,10 +338,27 @@ low-frequency glows, and worth roughly 12.9ms -> 8.5ms per frame on a 870k-pixel
 
 ## Sound (optional)
 
-On by default; untick it in the **Audio** tab to run silently. There are no audio files in
-the project and no audio dependencies - every sound is synthesised at runtime and streamed to
-the sound card through WinMM's `waveOut` (`Audio/WaveOutDevice.cs`, `Audio/SynthMixer.cs`,
-`Audio/SimulationAudio.cs`).
+On by default; untick it in the **Audio** tab to run silently. There are still no audio files in
+the project - every sound is synthesised, not recorded - but the synthesis itself now comes from
+[`RP.Sound`](extern/Sound), the procedural audio library next door, rather than from a copy of it
+living in this repository.
+
+The division is worth stating, because it is the reason the code shrank. **How** a sound is made
+is a library concern: `RP.Sound.Games.SciFi` holds the palette, and `RP.Sound.Playback` holds the
+voice pool, the stereo delay and the saturator. **Which** sound a simulation event makes, and how
+particle state bends it, is a game concern and is all that remains here
+(`Audio/SimulationAudio.cs`, `Audio/SoundPalette.cs`). Only the output device is still local
+(`Audio/WaveOutDevice.cs`), because opening one is platform work that a cross-platform library
+should not carry.
+
+One consequence is worth knowing. `RP.Sound` renders offline: a description goes in, finished
+samples come out. The simulation needs a sound *now*, at a pitch that depends on a particle nobody
+knew about a frame ago. So `SoundPalette` bakes the whole palette at start-up - on a background
+thread, so the window opens immediately - and playback varies pitch by reading the buffer faster
+or slower. Because reading far from the recorded rate audibly distorts a sound, and mass moves
+pitch over a span of nearly eleven to one, each pitched event is baked at five base pitches and
+playback picks the nearest. That holds every read within 27% of the rate it was written at, for
+about 1.7MB and a fraction of a second at start-up.
 
 The palette is deliberately science-fiction, built from four synthesis techniques rather than
 from different pitches of the same beep:
@@ -346,9 +393,9 @@ instead of merely accompanying it:
 | Phase | transporter | deep vibrato + ring mod over a long rising sweep, smeared |
 | Speed burst | thruster ignition | noise with the filter sweeping open + rising tone |
 
-The ambient drone is three partials - fundamental, a slightly sharp octave that beats against
-it, and a fifth - under a slow tremolo, so a sustained bed stays alive and faintly uneasy
-rather than sounding like a held organ note.
+The ambient drone is three partials - fundamental, octave and a twelfth - looped seamlessly. Its
+fundamental is snapped to a whole number of cycles across the buffer so the end meets the
+beginning exactly; without that, a bed that plays for an hour clicks once every two seconds.
 
 Events of the same kind are rate limited, and the voice pool is capped at 24 with new
 requests dropped when it is full. Dozens of particles can eat in a single frame; without both

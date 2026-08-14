@@ -2,10 +2,30 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <!-- net9.0 follows RP.Sound, which the audio is now built on. -->
+    <TargetFramework>net9.0-windows</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The shared libraries, checked out as siblings under extern/ so their own relative project
+         references resolve. RP.Game deliberately, not RP.Game.Silk: the latter carries Vulkan,
+         OpenAL and a shader-compilation build step that a 2D WPF application has no use for.
+         RP.Math arrives transitively through RP.Game. -->
+    <ProjectReference Include="extern\Game\RP.Game\RP.Game.csproj" />
+    <ProjectReference Include="extern\Sound\RP.Sound\RP.Sound.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The submodules contain their own projects, test projects and sample applications. Without
+         this the WPF SDK's default globs would try to compile all of them into this assembly. -->
+    <Compile Remove="extern\**" />
+    <Page Remove="extern\**" />
+    <None Remove="extern\**" />
+    <Resource Remove="extern\**" />
+    <ApplicationDefinition Remove="extern\**" />
+  </ItemGroup>
 
 </Project>

@@ -20,8 +20,9 @@ public sealed class WaveOutDevice : IDisposable
     public const int Channels = 2;
 
     // ~23ms per buffer, four in flight. Short enough that an event and its sound stay
-    // associated; long enough that a scheduling hiccup does not underrun.
-    private const int FramesPerBuffer = 1024;
+    // associated; long enough that a scheduling hiccup does not underrun. Public because the
+    // mixer sizes its scratch buffers up front from it, so that filling one never allocates.
+    public const int FramesPerBuffer = 1024;
     private const int BufferCount = 4;
 
     private const uint WAVE_MAPPER = 0xFFFFFFFF;

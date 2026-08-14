@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using DotGame.Models;
+using RP.Sound;
+using RP.Sound.Playback;
 
 namespace DotGame.Audio;
 
@@ -12,6 +15,13 @@ namespace DotGame.Audio;
 /// Second, stereo position follows screen position, so a death on the left is heard on the
 /// left. Together they mean the audio carries real information about the simulation rather
 /// than being decoration over it.
+///
+/// The sounds themselves are RP.Sound's <see cref="RP.Sound.Games.SciFi"/> palette, rendered once
+/// by <see cref="SoundPalette"/> and played back through RP.Sound's real-time mixer. What lives
+/// here is only what is specific to *this* simulation: which event makes which sound, how mass
+/// becomes pitch, how position becomes pan, and how often a given kind of event is allowed to
+/// speak. That division is the whole point — the synthesis is a library concern, the sound
+/// *design* is a game concern.
 ///
 /// Everything is optional and entirely passive: if no audio device opens, or the feature is
 /// switched off, every method here becomes a cheap no-op and the simulation is unaffected.
@@ -28,9 +38,14 @@ public sealed class SimulationAudio : IDisposable
     private const double PhaseIntervalSeconds = 0.090;
     private const double BurstIntervalSeconds = 0.070;
 
-    private readonly SynthMixer _mixer = new();
+    private readonly SampleVoiceMixer _mixer = new(WaveOutDevice.SampleRate, WaveOutDevice.FramesPerBuffer);
     private readonly WaveOutDevice _device;
-    private readonly Dictionary<string, double> _lastPlayed = new();
+    private readonly Dictionary<Cue, double> _lastPlayed = new();
+
+    // Baking the palette costs a fraction of a second. Doing it on a background thread keeps the
+    // window responsive at start-up; until it lands, every event is simply dropped, which is
+    // inaudible because nothing has had time to happen yet.
+    private volatile SoundPalette? _palette;
 
     private double _clock;
     private double _worldWidth = 800;
@@ -42,13 +57,21 @@ public sealed class SimulationAudio : IDisposable
     private SimulationAudio(bool offline)
     {
         _offline = offline;
-        _device = new WaveOutDevice(_mixer.Fill);
+        _device = new WaveOutDevice((buffer, frames) =>
+        {
+            _mixer.Fill(buffer, frames);
+            return true;
+        });
+
+        if (offline) _palette = SoundPalette.Bake(WaveOutDevice.SampleRate);
+        else Task.Run(() => _palette = SoundPalette.Bake(WaveOutDevice.SampleRate));
     }
 
     /// <summary>
     /// Creates an instance that synthesises without claiming an output device. The caller
     /// pumps the mixer itself through <see cref="RenderTo"/>, which is how the sound design
-    /// can be auditioned or tested without anything being audible.
+    /// can be auditioned or tested without anything being audible. The palette is baked
+    /// synchronously here, so the first event after construction is already audible.
     /// </summary>
     public static SimulationAudio CreateOffline() => new(true);
 
@@ -65,7 +88,7 @@ public sealed class SimulationAudio : IDisposable
     }
 
     /// <summary>Direct access to mixer settings, for offline rendering.</summary>
-    public SynthMixer Mixer => _mixer;
+    public SampleVoiceMixer Mixer => _mixer;
 
     /// <summary>True once an output device is running.</summary>
     public bool IsAvailable => _device.IsOpen;
@@ -76,15 +99,15 @@ public sealed class SimulationAudio : IDisposable
     /// <summary>Master volume, 0..1.</summary>
     public double Volume
     {
-        get => _mixer.Volume;
-        set => _mixer.Volume = (float)Math.Clamp(value, 0, 1);
+        get => _mixer.Volume.Linear;
+        set => _mixer.Volume = new Level(Math.Clamp(value, 0, 1));
     }
 
     /// <summary>Whether the low population drone is mixed in.</summary>
     public bool AmbientEnabled
     {
-        get => _mixer.AmbientEnabled;
-        set => _mixer.AmbientEnabled = value;
+        get => _mixer.BedEnabled;
+        set => _mixer.BedEnabled = value;
     }
 
     /// <summary>
@@ -126,10 +149,13 @@ public sealed class SimulationAudio : IDisposable
         _clock += deltaTime;
         if (!Enabled) return;
 
+        SoundPalette? palette = _palette;
+        if (palette is null) return;
+
         int count = particles.Count;
         if (count == 0)
         {
-            _mixer.SetAmbient(40f, 0f);
+            _mixer.SetBed(palette.Drone, 40 / SoundPalette.DroneReferenceHertz, Level.Silence);
             return;
         }
 
@@ -144,173 +170,76 @@ public sealed class SimulationAudio : IDisposable
         float fullness = maxEnergy > 0 ? (float)(totalEnergy / maxEnergy) : 0.5f;
 
         // More particles -> lower, heavier drone
-        float freq = 34f + 44f / (1f + count / 22f);
-        float level = 0.020f + 0.045f * fullness;
+        double freq = 34.0 + 44.0 / (1.0 + count / 22.0);
+        double level = 0.020 + 0.045 * fullness;
 
-        _mixer.SetAmbient(freq, level);
+        _mixer.SetBed(palette.Drone, freq / SoundPalette.DroneReferenceHertz, new Level(level));
     }
 
     /// <summary>
-    /// A particle consumed another - a hard energy-weapon discharge. A steep downward
-    /// exponential sweep is the canonical "zap"; the FM sidebands give it a hard synthetic
-    /// bite that a plain sine cannot produce.
+    /// A particle consumed another - a hard energy-weapon discharge, pitched by the size of the
+    /// meal and placed where the predator is.
     /// </summary>
-    public void Eat(Particle predator, Particle prey)
-    {
-        if (!Enabled || !RateLimit("eat", EatIntervalSeconds)) return;
+    public void Eat(Particle predator, Particle prey) =>
+        Fire(Cue.Eat, EatIntervalSeconds, PitchForMass(prey.Mass, 900), PanFor(predator), 0.55);
 
-        float pan = PanFor(predator);
-        float freq = PitchForMass(prey.Mass, 900f);
+    /// <summary>A particle starved - a reactor losing containment, collapsing away into the delay.</summary>
+    public void Death(Particle particle) =>
+        Fire(Cue.Death, DeathIntervalSeconds, PitchForMass(particle.Mass, 320), PanFor(particle), 0.8);
 
-        var zap = VoiceSpec.Tone(freq, freq * 0.22f, 0.30f, 0.002f, 0.14f, pan);
-        zap.ModRatio = 2.41f;   // deliberately not a whole number, so the partials are inharmonic
-        zap.ModIndex = 5.5f;
-        zap.DelaySend = 0.55f;
-        _mixer.Play(zap);
+    /// <summary>A particle was born - a materialisation, fed hard into the delay so it phases in.</summary>
+    public void Birth(Particle particle) =>
+        Fire(Cue.Birth, BirthIntervalSeconds, PitchForMass(particle.Mass, 520), PanFor(particle), 0.85);
 
-        var spark = VoiceSpec.Noise(0.11f, 0.001f, 0.05f, pan, 0.85f, 0.25f);
-        _mixer.Play(spark);
-    }
+    /// <summary>A particle divided - a replicator cycle, the two halves beating against each other.</summary>
+    public void Split(Particle particle) =>
+        Fire(Cue.Split, SplitIntervalSeconds, PitchForMass(particle.Mass, 620), PanFor(particle), 0.5);
+
+    /// <summary>A particle phased - a transporter effect, smeared almost entirely into the delay.</summary>
+    public void Phase(Particle particle) =>
+        Fire(Cue.Phase, PhaseIntervalSeconds, 0, PanFor(particle), 0.95);
+
+    /// <summary>A speed burst - a thruster igniting, the filter opening as it goes.</summary>
+    public void SpeedBurst(Particle particle) =>
+        Fire(Cue.SpeedBurst, BurstIntervalSeconds, 0, PanFor(particle), 0.35);
 
     /// <summary>
-    /// A particle starved - a reactor losing containment. Ring modulation over a long
-    /// downward sweep gives the clangorous, failing-machine character; the long tail feeds
-    /// the delay so it collapses away into the distance.
+    /// The one path every event takes: rate-limit, pick the buffer baked nearest the wanted pitch,
+    /// and hand it to the mixer. A refusal anywhere along here is silent and harmless — a dropped
+    /// sound in a dense moment is inaudible, whereas stealing a sounding voice would be a click.
     /// </summary>
-    public void Death(Particle particle)
+    private void Fire(Cue cue, double interval, double pitch, double pan, double send)
     {
-        if (!Enabled || !RateLimit("death", DeathIntervalSeconds)) return;
+        if (!Enabled || !RateLimit(cue, interval)) return;
 
-        float pan = PanFor(particle);
-        float freq = PitchForMass(particle.Mass, 320f);
+        SoundPalette? palette = _palette;
+        if (palette is null) return;
 
-        var collapse = VoiceSpec.Tone(freq, freq * 0.18f, 0.34f, 0.004f, 0.55f, pan);
-        collapse.ModRatio = 1.37f;
-        collapse.ModIndex = 3.2f;
-        collapse.RingFreq = freq * 0.51f;
-        collapse.DelaySend = 0.8f;
-        _mixer.Play(collapse);
-
-        var sub = VoiceSpec.Tone(freq * 0.5f, freq * 0.16f, 0.26f, 0.006f, 0.60f, pan);
-        sub.Timbre = Timbre.Triangle;
-        _mixer.Play(sub);
-
-        // Noise that darkens as it decays - the sound of something venting and dying down
-        _mixer.Play(VoiceSpec.Noise(0.20f, 0.002f, 0.42f, pan, 0.55f, 0.04f));
-    }
-
-    /// <summary>
-    /// A particle was born - a materialisation. Rising exponential sweep with vibrato and
-    /// heavy FM, then a bloom of shimmer, all fed hard into the delay so it phases in rather
-    /// than simply appearing.
-    /// </summary>
-    public void Birth(Particle particle)
-    {
-        if (!Enabled || !RateLimit("birth", BirthIntervalSeconds)) return;
-
-        float pan = PanFor(particle);
-        float freq = PitchForMass(particle.Mass, 520f);
-
-        var materialise = VoiceSpec.Tone(freq * 0.5f, freq * 2.2f, 0.20f, 0.020f, 0.34f, pan);
-        materialise.ModRatio = 3.02f;
-        materialise.ModIndex = 2.6f;
-        materialise.VibratoHz = 17f;
-        materialise.VibratoDepth = 0.022f;
-        materialise.DelaySend = 0.85f;
-        _mixer.Play(materialise);
-
-        var shimmer = VoiceSpec.Noise(0.07f, 0.030f, 0.26f, pan, 0.55f, 0.95f);
-        shimmer.DelaySend = 0.7f;
-        _mixer.Play(shimmer);
-    }
-
-    /// <summary>
-    /// A particle divided - a replicator cycle. Two ring-modulated tones panned apart, the
-    /// second slightly detuned so the pair beats against itself.
-    /// </summary>
-    public void Split(Particle particle)
-    {
-        if (!Enabled || !RateLimit("split", SplitIntervalSeconds)) return;
-
-        float freq = PitchForMass(particle.Mass, 620f);
-        float pan = PanFor(particle);
-
-        var a = VoiceSpec.Tone(freq, freq * 1.32f, 0.18f, 0.004f, 0.20f, pan - 0.35f);
-        a.RingFreq = freq * 0.74f;
-        a.ModRatio = 2.0f;
-        a.ModIndex = 1.8f;
-        _mixer.Play(a);
-
-        var b = VoiceSpec.Tone(freq * 1.005f, freq * 1.49f, 0.15f, 0.004f, 0.24f, pan + 0.35f);
-        b.RingFreq = freq * 0.76f;
-        b.ModRatio = 2.0f;
-        b.ModIndex = 1.8f;
-        _mixer.Play(b);
-    }
-
-    /// <summary>
-    /// A particle phased - a transporter effect. Deep vibrato plus ring modulation over a
-    /// long rising sweep, with almost everything routed to the delay so it smears.
-    /// </summary>
-    public void Phase(Particle particle)
-    {
-        if (!Enabled || !RateLimit("phase", PhaseIntervalSeconds)) return;
-
-        float pan = PanFor(particle);
-
-        var beam = VoiceSpec.Tone(420f, 2400f, 0.15f, 0.040f, 0.46f, pan);
-        beam.RingFreq = 143f;
-        beam.VibratoHz = 23f;
-        beam.VibratoDepth = 0.05f;
-        beam.ModRatio = 1.51f;
-        beam.ModIndex = 2.2f;
-        beam.DelaySend = 0.95f;
-        _mixer.Play(beam);
-
-        var air = VoiceSpec.Noise(0.08f, 0.050f, 0.40f, pan, 0.30f, 0.98f);
-        air.DelaySend = 0.8f;
-        _mixer.Play(air);
-    }
-
-    /// <summary>
-    /// A speed burst - a thruster igniting. The filter opening from dull to bright over the
-    /// noise is the whole effect; the rising tone underneath supplies the sense of thrust.
-    /// </summary>
-    public void SpeedBurst(Particle particle)
-    {
-        if (!Enabled || !RateLimit("burst", BurstIntervalSeconds)) return;
-
-        float pan = PanFor(particle);
-
-        _mixer.Play(VoiceSpec.Noise(0.24f, 0.015f, 0.26f, pan, 0.08f, 0.90f));
-
-        var thrust = VoiceSpec.Tone(180f, 1150f, 0.13f, 0.012f, 0.22f, pan);
-        thrust.ModRatio = 1.98f;
-        thrust.ModIndex = 1.4f;
-        _mixer.Play(thrust);
+        (AudioBuffer buffer, double rate) = palette.Pick(cue, pitch);
+        _mixer.Play(buffer, rate, pan: pan, send: send);
     }
 
     /// <summary>
     /// Heavier particles sound lower. Mass is taken to a fractional power rather than used
     /// directly so the range stays musical across the full 0.5-70 mass span the simulation
-    /// actually produces.
+    /// actually produces. The clamp here is what <see cref="SoundPalette"/> sizes its bands from.
     /// </summary>
-    private static float PitchForMass(double mass, float reference)
+    private static double PitchForMass(double mass, double reference)
     {
         double m = Math.Clamp(mass, 0.3, 90.0);
-        return (float)(reference / Math.Pow(m, 0.42));
+        return reference / Math.Pow(m, 0.42);
     }
 
-    private float PanFor(Particle particle)
+    private double PanFor(Particle particle)
     {
-        return (float)Math.Clamp(particle.Position.X / _worldWidth * 2.0 - 1.0, -1.0, 1.0) * 0.8f;
+        return Math.Clamp(particle.Position.X / _worldWidth * 2.0 - 1.0, -1.0, 1.0) * 0.8;
     }
 
-    private bool RateLimit(string key, double interval)
+    private bool RateLimit(Cue cue, double interval)
     {
-        if (_lastPlayed.TryGetValue(key, out double last) && _clock - last < interval)
+        if (_lastPlayed.TryGetValue(cue, out double last) && _clock - last < interval)
             return false;
-        _lastPlayed[key] = _clock;
+        _lastPlayed[cue] = _clock;
         return true;
     }
 
