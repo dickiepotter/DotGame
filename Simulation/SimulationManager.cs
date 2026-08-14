@@ -6,6 +6,7 @@ using DotGame.Physics;
 using DotGame.Rendering;
 using DotGame.Utilities;
 using DotGame.Audio;
+using RP.Game.Core;
 using static DotGame.Utilities.PhysicsConstants;
 
 namespace DotGame.Simulation;
@@ -21,9 +22,14 @@ public class SimulationManager
     private readonly ParticleIdGenerator _idGenerator;
     private readonly SimulationAudio _audio = new();
 
+    // The fixed-timestep clock, from RP.Game rather than hand-rolled here. It steps by integer
+    // division rather than by subtracting in a loop, so a long session cannot drift, and it clamps
+    // an over-long frame before banking it so a resume from suspend cannot spiral.
+    private readonly FixedTimestepAccumulator _clock =
+        new(PhysicsConstants.FIXED_DELTA_TIME, PhysicsConstants.FIXED_DELTA_TIME * PhysicsConstants.MAX_STEPS_PER_FRAME);
+
     private List<Particle> _particles;
     private DateTime _lastUpdateTime;
-    private double _timeAccumulator;
     private long _stepCount;
     private bool _isRunning;
 
@@ -72,7 +78,7 @@ public class SimulationManager
         _renderer.Render(_particles);
 
         _lastUpdateTime = DateTime.Now;
-        _timeAccumulator = 0;
+        _clock.Reset();
         _stepCount = 0;
     }
 
@@ -120,30 +126,21 @@ public class SimulationManager
         // Start performance tracking
         _performanceMonitor.StartFrame();
 
-        // Measure real elapsed time and bank it
+        // Measure real elapsed time and bank it. The accumulator does the clamping, so a huge
+        // first frame or a resume from suspend cannot bank more work than one frame may clear.
         var currentTime = DateTime.Now;
         double elapsed = (currentTime - _lastUpdateTime).TotalSeconds;
         _lastUpdateTime = currentTime;
 
-        // Guard against a huge first frame or a resume from suspend
-        elapsed = Math.Clamp(elapsed, 0, FIXED_DELTA_TIME * MAX_STEPS_PER_FRAME);
-        _timeAccumulator += elapsed;
-
         // Advance the simulation in fixed increments. A given seed and a given number of
         // steps always produce exactly the same state, independent of frame rate or of how
         // the frames happened to be paced.
-        int steps = 0;
-        while (_timeAccumulator >= FIXED_DELTA_TIME && steps < MAX_STEPS_PER_FRAME)
+        int steps = _clock.Advance(Math.Max(0, elapsed));
+        for (int i = 0; i < steps; i++)
         {
             _physicsEngine.Update(_particles, FIXED_DELTA_TIME, _renderer, _audio);
-            _timeAccumulator -= FIXED_DELTA_TIME;
-            steps++;
             _stepCount++;
         }
-
-        // Drop any backlog we could not clear, rather than compounding it next frame
-        if (_timeAccumulator > FIXED_DELTA_TIME)
-            _timeAccumulator = 0;
 
         // Animate visuals by the amount of simulated time actually consumed, so the
         // effects stay in lockstep with the physics

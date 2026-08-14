@@ -2,7 +2,6 @@
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Controls;
-using System.Text.Json;
 using System.IO;
 using Microsoft.Win32;
 using System.Windows.Threading;
@@ -10,6 +9,7 @@ using DotGame.Models;
 using DotGame.Simulation;
 using DotGame.Utilities;
 using DotGame.UI;
+using RP.Game.Mechanics;
 using System.Collections.Generic;
 
 namespace DotGame.Views;
@@ -539,15 +539,10 @@ public partial class MainWindow : Window
         {
             try
             {
-                // Serialize config to JSON
-                var options = new JsonSerializerOptions
-                {
-                    WriteIndented = true
-                };
-                string json = JsonSerializer.Serialize(_config, options);
-
-                // Write to file
-                File.WriteAllText(saveFileDialog.FileName, json);
+                // JsonStore writes to a temporary file and then replaces the target, so a crash or
+                // a full disk part-way through leaves the previous settings intact rather than a
+                // truncated file where they used to be.
+                JsonStore.Save(saveFileDialog.FileName, _config);
 
                 MessageBox.Show($"Settings saved successfully to:\n{saveFileDialog.FileName}",
                     "Settings Saved", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -574,11 +569,9 @@ public partial class MainWindow : Window
         {
             try
             {
-                // Read from file
-                string json = File.ReadAllText(openFileDialog.FileName);
-
-                // Deserialize config from JSON
-                var loadedConfig = JsonSerializer.Deserialize<SimulationConfig>(json);
+                // TryLoad reports a missing or corrupt file as false rather than throwing, so a
+                // hand-edited settings file is a message to the user, not an unhandled exception.
+                JsonStore.TryLoad(openFileDialog.FileName, out SimulationConfig? loadedConfig);
 
                 if (loadedConfig != null)
                 {
