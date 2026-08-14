@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Numerics;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -18,6 +18,13 @@ public class TrailRenderer
     private readonly List<Polyline> _trailPolylines;
 
     public int TrailLength { get; set; } = 15;
+
+    /// <summary>
+    /// Recorded positions per particle, oldest first. Exposed so renderers that draw trails
+    /// themselves - Luminous draws them as light - can reuse this history rather than keeping
+    /// a second copy of it.
+    /// </summary>
+    public IReadOnlyDictionary<int, Queue<Vector2>> Trails => _particleTrails;
 
     public TrailRenderer(Canvas canvas)
     {

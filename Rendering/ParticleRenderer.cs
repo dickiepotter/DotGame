@@ -60,6 +60,15 @@ public class ParticleRenderer
         set => _trailRenderer.TrailLength = value;
     }
 
+    /// <summary>
+    /// On-screen pixels per world unit, from the view that scales the world to the window.
+    /// </summary>
+    public double ViewScale
+    {
+        get => _luminousRenderer.ViewScale;
+        set => _luminousRenderer.ViewScale = value;
+    }
+
     // Hovered particle for vision cone
     public Particle? HoveredParticle { get; set; }
 
@@ -252,10 +261,31 @@ public class ParticleRenderer
             _birthAnimationRenderer.UpdateBirthAnimations(deltaTime);
         }
 
+        // Drop history for particles that no longer exist, so a dead particle's trail does
+        // not hang in the field indefinitely
+        var live = new HashSet<int>(particles.Select(p => p.Id));
+        foreach (var goneId in _trailRenderer.Trails.Keys.Where(id => !live.Contains(id)).ToList())
+            _trailRenderer.RemoveTrail(goneId);
+
+        if (ShowTrails)
+        {
+            foreach (var particle in particles)
+                _trailRenderer.UpdateTrail(particle);
+        }
+        else if (_trailRenderer.Trails.Count > 0)
+        {
+            _trailRenderer.Clear();
+        }
+
+        _luminousRenderer.ShowGrid = ShowGrid;
+        _luminousRenderer.ShowEnergyBars = ShowEnergyBars;
+        _luminousRenderer.ShowTrails = ShowTrails;
         _luminousRenderer.ShowVisionCones = ShowVisionCones;
         _luminousRenderer.HoveredParticle = HoveredParticle;
+
         _luminousRenderer.Render(particles, deltaTime,
-            _explosionRenderer.ActiveExplosions, _birthAnimationRenderer.ActiveBirths);
+            _explosionRenderer.ActiveExplosions, _birthAnimationRenderer.ActiveBirths,
+            _trailRenderer.Trails);
     }
 
     /// <summary>

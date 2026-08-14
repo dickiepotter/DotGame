@@ -1,4 +1,4 @@
-using System.Numerics;
+﻿using System.Numerics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -15,6 +15,14 @@ namespace DotGame.UI;
 public class SimulationInputHandler
 {
     private readonly Canvas _canvas;
+
+    /// <summary>
+    /// The unscaled element the tooltip is laid out in. The canvas now lives inside a
+    /// Viewbox, so positions taken relative to it are world coordinates - right for picking
+    /// particles, wrong for placing an overlay that is not itself scaled.
+    /// </summary>
+    private readonly FrameworkElement _overlayHost;
+
     private readonly SimulationManager _simulationManager;
     private readonly ParticleTooltipManager _tooltipManager;
 
@@ -34,10 +42,12 @@ public class SimulationInputHandler
 
     public SimulationInputHandler(
         Canvas canvas,
+        FrameworkElement overlayHost,
         SimulationManager simulationManager,
         ParticleTooltipManager tooltipManager)
     {
         _canvas = canvas;
+        _overlayHost = overlayHost;
         _simulationManager = simulationManager;
         _tooltipManager = tooltipManager;
     }
@@ -74,8 +84,8 @@ public class SimulationInputHandler
     /// </summary>
     public void OnMouseMove(MouseEventArgs e)
     {
-        var currentPosition = GetMousePosition(e);
-        var mousePos = e.GetPosition(_canvas);
+        var currentPosition = GetMousePosition(e);          // world coordinates
+        var mousePos = e.GetPosition(_overlayHost);        // overlay coordinates
 
         if (_isDragging && _draggedParticle != null)
         {
@@ -129,7 +139,7 @@ public class SimulationInputHandler
             _activeTouchId = e.TouchDevice.Id;
 
             // Show tooltip at touch position
-            var canvasBounds = new Rect(0, 0, _canvas.ActualWidth, _canvas.ActualHeight);
+            var canvasBounds = new Rect(0, 0, _overlayHost.ActualWidth, _overlayHost.ActualHeight);
             _tooltipManager.Show(particle, touchPoint.Position, canvasBounds);
 
             e.TouchDevice.Capture(_canvas);

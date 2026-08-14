@@ -52,8 +52,42 @@ public partial class MainWindow : Window
 
     private void Window_Loaded(object sender, RoutedEventArgs e)
     {
+        // Shape the world to the display before anything is created with it
+        ApplyDisplayAspectToWorld();
+
         // Initialize simulation after window is loaded and canvas is laid out
         InitializeSimulation();
+    }
+
+    /// <summary>
+    /// Sets the default world to the display's aspect ratio, so full screen fills it exactly
+    /// instead of showing bars down the sides.
+    ///
+    /// The configured *area* is preserved rather than a dimension, because particle density
+    /// is what the ecosystem is balanced around - stretching 800x600 out to 1067x600 would
+    /// quietly make the world a third emptier and change how often anything meets anything.
+    ///
+    /// Only the starting value is derived this way; the Sim Width and Sim Height fields remain
+    /// the source of truth and can be set to anything.
+    /// </summary>
+    private void ApplyDisplayAspectToWorld()
+    {
+        double screenWidth = SystemParameters.PrimaryScreenWidth;
+        double screenHeight = SystemParameters.PrimaryScreenHeight;
+        if (screenWidth <= 0 || screenHeight <= 0) return;
+
+        double area = _config.SimulationWidth * _config.SimulationHeight;
+        if (area <= 0) return;
+
+        double aspect = screenWidth / screenHeight;
+        double height = Math.Round(Math.Sqrt(area / aspect));
+        double width = Math.Round(height * aspect);
+        if (width < 100 || height < 100) return;
+
+        _config.SimulationWidth = width;
+        _config.SimulationHeight = height;
+        SimWidthTextBox.Text = width.ToString("F0");
+        SimHeightTextBox.Text = height.ToString("F0");
     }
 
     /// <summary>
@@ -64,8 +98,117 @@ public partial class MainWindow : Window
     protected override void OnClosed(EventArgs e)
     {
         _uiUpdateTimer?.Stop();
+        _hintTimer?.Stop();
         _simulationManager?.Shutdown();
         base.OnClosed(e);
+    }
+
+    // ---------------------------------------------------------------- full screen
+
+    private bool _isFullScreen;
+    private WindowStyle _restoreStyle;
+    private WindowState _restoreState;
+    private ResizeMode _restoreResizeMode;
+    private Thickness _restoreBorderMargin;
+    private Thickness _restoreBorderThickness;
+    private DispatcherTimer? _hintTimer;
+
+    /// <summary>
+    /// Enters or leaves full screen: the sidebar is removed, the window loses its chrome, and
+    /// the simulation fills the display.
+    ///
+    /// The world itself is unchanged - the Viewbox simply scales it up to the larger area, so
+    /// the same simulation is shown bigger rather than a bigger simulation being shown.
+    /// </summary>
+    private void SetFullScreen(bool on)
+    {
+        if (on == _isFullScreen) return;
+        _isFullScreen = on;
+
+        if (on)
+        {
+            _restoreStyle = WindowStyle;
+            _restoreState = WindowState;
+            _restoreResizeMode = ResizeMode;
+            _restoreBorderMargin = SimulationBorder.Margin;
+            _restoreBorderThickness = SimulationBorder.BorderThickness;
+
+            SidebarPanel.Visibility = Visibility.Collapsed;
+            SidebarColumn.Width = new GridLength(0);
+
+            // Drop the frame so the simulation runs edge to edge
+            SimulationBorder.Margin = new Thickness(0);
+            SimulationBorder.BorderThickness = new Thickness(0);
+
+            WindowStyle = WindowStyle.None;
+            ResizeMode = ResizeMode.NoResize;
+
+            // Cycle through Normal first. Removing the chrome while already maximised leaves
+            // the window sized for the frame it no longer has, so it would not cover the
+            // taskbar or the full screen height.
+            WindowState = WindowState.Normal;
+            WindowState = WindowState.Maximized;
+
+            ShowFullScreenHint();
+        }
+        else
+        {
+            SidebarPanel.Visibility = Visibility.Visible;
+            SidebarColumn.Width = new GridLength(300);
+            SimulationBorder.Margin = _restoreBorderMargin;
+            SimulationBorder.BorderThickness = _restoreBorderThickness;
+
+            WindowStyle = _restoreStyle;
+            ResizeMode = _restoreResizeMode;
+            WindowState = _restoreState;
+
+            HideFullScreenHint();
+        }
+    }
+
+    /// <summary>
+    /// Briefly says how to get back out. Without it, a borderless window with no visible
+    /// controls is easy to mistake for a hang.
+    /// </summary>
+    private void ShowFullScreenHint()
+    {
+        FullScreenHint.Visibility = Visibility.Visible;
+
+        _hintTimer ??= new DispatcherTimer();
+        _hintTimer.Stop();
+        _hintTimer.Interval = TimeSpan.FromSeconds(4);
+        _hintTimer.Tick -= HintTimer_Tick;
+        _hintTimer.Tick += HintTimer_Tick;
+        _hintTimer.Start();
+    }
+
+    private void HintTimer_Tick(object? sender, EventArgs e)
+    {
+        _hintTimer?.Stop();
+        FullScreenHint.Visibility = Visibility.Collapsed;
+    }
+
+    private void HideFullScreenHint()
+    {
+        _hintTimer?.Stop();
+        FullScreenHint.Visibility = Visibility.Collapsed;
+    }
+
+    private void FullScreenButton_Click(object sender, RoutedEventArgs e) => SetFullScreen(!_isFullScreen);
+
+    private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        // Preview, so the shortcut works even while a sidebar text box has focus
+        if (e.Key == Key.F11)
+        {
+            SetFullScreen(!_isFullScreen);
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Escape && _isFullScreen)
+        {
+            SetFullScreen(false);
+            e.Handled = true;
+        }
     }
 
     private void InitializeSimulation()
@@ -88,16 +231,12 @@ public partial class MainWindow : Window
         // Update config from UI
         UpdateConfigFromUI();
 
-        // Use actual canvas size (should be available after Window_Loaded)
-        if (SimulationCanvas.ActualWidth > 0 && SimulationCanvas.ActualHeight > 0)
-        {
-            _config.SimulationWidth = SimulationCanvas.ActualWidth;
-            _config.SimulationHeight = SimulationCanvas.ActualHeight;
-
-            // Update textboxes to reflect actual canvas size
-            SimWidthTextBox.Text = SimulationCanvas.ActualWidth.ToString("F0");
-            SimHeightTextBox.Text = SimulationCanvas.ActualHeight.ToString("F0");
-        }
+        // The world's dimensions come from the configuration and nowhere else - the Sim Width
+        // and Sim Height fields. The window only decides how large that world is drawn.
+        //
+        // This is what makes a seed portable: previously the world was sized from whatever
+        // window it happened to open in, so the same seed produced a different simulation on
+        // a different display. Now it does not.
 
         // Release the outgoing simulation's audio device. Each SimulationManager owns a
         // waveOut handle and a feed thread; without this, every Reset leaks both.
@@ -110,11 +249,14 @@ public partial class MainWindow : Window
         // would create a full set of Classic ellipses only to tear them down again.
         ApplyRenderModeToRenderer(_simulationManager.Renderer);
 
+        // Give the canvas the world's dimensions; the Viewbox handles fitting it on screen
+        ApplyWorldSize();
+
         _simulationManager.Initialize();
 
         // Initialize UI managers
         _tooltipManager = new ParticleTooltipManager(ParticleTooltip, TooltipText);
-        _inputHandler = new SimulationInputHandler(SimulationCanvas, _simulationManager, _tooltipManager);
+        _inputHandler = new SimulationInputHandler(SimulationCanvas, SimulationSurface, _simulationManager, _tooltipManager);
 
         // Apply visual settings from UI to renderer
         ApplyVisualSettingsToRenderer();
@@ -345,21 +487,38 @@ public partial class MainWindow : Window
 
     private void SimulationBorder_SizeChanged(object sender, SizeChangedEventArgs e)
     {
-        // Get the new size of the border (which contains the canvas)
-        var newWidth = e.NewSize.Width;
-        var newHeight = e.NewSize.Height;
+        // The world keeps its dimensions; only the zoom applied to it changes.
+        UpdateViewScale();
+    }
 
-        // Update canvas size to fill the border
-        SimulationCanvas.Width = newWidth;
-        SimulationCanvas.Height = newHeight;
+    /// <summary>
+    /// Sets the canvas to the world's dimensions. The Viewbox scales that to the space
+    /// available, preserving aspect ratio, so circles stay circular at any window size.
+    /// </summary>
+    private void ApplyWorldSize()
+    {
+        if (_config.SimulationWidth <= 0 || _config.SimulationHeight <= 0) return;
 
-        // Update simulation configuration with new dimensions
-        _config.SimulationWidth = newWidth;
-        _config.SimulationHeight = newHeight;
+        SimulationCanvas.Width = _config.SimulationWidth;
+        SimulationCanvas.Height = _config.SimulationHeight;
+        UpdateViewScale();
+    }
 
-        // Update the UI textboxes to reflect new dimensions
-        SimWidthTextBox.Text = newWidth.ToString("F0");
-        SimHeightTextBox.Text = newHeight.ToString("F0");
+    /// <summary>
+    /// Tells the renderer how many screen pixels a world unit currently occupies, so the
+    /// light field can render at matching resolution instead of being stretched and softened.
+    /// </summary>
+    private void UpdateViewScale()
+    {
+        if (_simulationManager == null) return;
+        if (SimulationCanvas.Width <= 0 || SimulationViewbox.ActualWidth <= 0) return;
+
+        double scale = Math.Min(
+            SimulationViewbox.ActualWidth / SimulationCanvas.Width,
+            SimulationViewbox.ActualHeight / SimulationCanvas.Height);
+
+        if (scale > 0 && !double.IsInfinity(scale))
+            _simulationManager.Renderer.ViewScale = scale;
     }
 
     private void SaveSettingsButton_Click(object sender, RoutedEventArgs e)
@@ -587,6 +746,13 @@ public partial class MainWindow : Window
     {
         bool luminous = RenderLuminousRadio?.IsChecked ?? false;
         renderer.Mode = luminous ? Rendering.RenderMode.Luminous : Rendering.RenderMode.Classic;
+
+        // The world rarely matches the window's aspect exactly, so there are usually bars to
+        // either side of it. They belong to the Border, which the renderer cannot reach.
+        SimulationBorder.Background = luminous
+            ? System.Windows.Media.Brushes.Black
+            : new System.Windows.Media.SolidColorBrush(
+                System.Windows.Media.Color.FromRgb(0x2A, 0x2A, 0x2A));
 
         renderer.Luminous.Exposure = (float)(ExposureSlider?.Value ?? 1.15);
         renderer.Luminous.GlowScale = (float)(GlowScaleSlider?.Value ?? 1.0);

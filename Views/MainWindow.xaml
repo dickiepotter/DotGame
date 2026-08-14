@@ -4,16 +4,21 @@
         Title="DotGame - 2D Physics Particle Simulator"
         Height="700" Width="1200"
         WindowStartupLocation="CenterScreen"
-        Loaded="Window_Loaded">
+        Loaded="Window_Loaded"
+        PreviewKeyDown="Window_PreviewKeyDown">
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="300"/>
+            <ColumnDefinition x:Name="SidebarColumn" Width="300"/>
         </Grid.ColumnDefinitions>
 
         <!-- Simulation Canvas -->
-        <Border Grid.Column="0" BorderBrush="Black" BorderThickness="2" Margin="10" SizeChanged="SimulationBorder_SizeChanged">
-            <Grid>
+        <Border x:Name="SimulationBorder" Grid.Column="0" BorderBrush="Black" BorderThickness="2" Margin="10" Background="Black" SizeChanged="SimulationBorder_SizeChanged">
+            <Grid x:Name="SimulationSurface">
+                <!-- The simulation world is a fixed size; the Viewbox scales it to whatever
+                     room the window gives it, preserving aspect ratio. Mouse positions taken
+                     relative to the Canvas therefore arrive already in world coordinates. -->
+                <Viewbox x:Name="SimulationViewbox" Stretch="Uniform">
                 <Canvas x:Name="SimulationCanvas"
                         Background="Black"
                         MouseLeftButtonDown="SimulationCanvas_MouseLeftButtonDown"
@@ -24,6 +29,23 @@
                         TouchMove="SimulationCanvas_TouchMove"
                         TouchUp="SimulationCanvas_TouchUp"
                         IsManipulationEnabled="True"/>
+                </Viewbox>
+
+                <!-- Full screen hint, shown briefly on entering -->
+                <Border x:Name="FullScreenHint"
+                        Background="#CC000000"
+                        BorderBrush="#66FFFFFF"
+                        BorderThickness="1"
+                        CornerRadius="4"
+                        Padding="14,8"
+                        Margin="0,24,0,0"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Top"
+                        IsHitTestVisible="False"
+                        Visibility="Collapsed">
+                    <TextBlock Text="Full screen  -  press F11 or Esc to exit"
+                               Foreground="#EEFFFFFF" FontSize="13"/>
+                </Border>
 
                 <!-- Particle Details Tooltip -->
                 <Border x:Name="ParticleTooltip"
@@ -46,7 +68,7 @@
         </Border>
 
         <!-- Control Panel with Tabs -->
-        <Border Grid.Column="1" BorderBrush="Gray" BorderThickness="1" Margin="10" Padding="10">
+        <Border x:Name="SidebarPanel" Grid.Column="1" BorderBrush="Gray" BorderThickness="1" Margin="10" Padding="10">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
@@ -69,6 +91,7 @@
                                         <Button x:Name="StartButton" Content="Start" Click="StartButton_Click" Margin="0,5" Padding="5" Background="LightGreen"/>
                                         <Button x:Name="StopButton" Content="Stop" Click="StopButton_Click" Margin="0,5" Padding="5" Background="LightCoral"/>
                                         <Button x:Name="ResetButton" Content="Reset" Click="ResetButton_Click" Margin="0,5" Padding="5"/>
+                                        <Button x:Name="FullScreenButton" Content="Full Screen (F11)" Click="FullScreenButton_Click" Margin="0,5" Padding="5"/>
                                     </StackPanel>
                                 </GroupBox>
 
@@ -142,7 +165,7 @@
 
                                 <!-- Simulation Size (read-only info) -->
                                 <TextBlock Text="Simulation Size:" FontWeight="Bold" Margin="0,10,0,2"/>
-                                <TextBlock Text="(Auto-sized to canvas)" FontStyle="Italic" FontSize="10" Margin="0,0,0,2"/>
+                                <TextBlock Text="The world is a fixed size, scaled to fit the window. Defaults to your display's shape so full screen fills it. Applied on Reset." FontStyle="Italic" FontSize="10" Foreground="Gray" TextWrapping="Wrap" Margin="0,0,0,4"/>
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto"/>
@@ -151,9 +174,9 @@
                                         <ColumnDefinition Width="*"/>
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="0" Text="W:" Margin="0,0,5,0" VerticalAlignment="Center"/>
-                                    <TextBox x:Name="SimWidthTextBox" Grid.Column="1" Text="800" IsReadOnly="True" Background="LightGray" VerticalContentAlignment="Center"/>
+                                    <TextBox x:Name="SimWidthTextBox" Grid.Column="1" Text="800" VerticalContentAlignment="Center"/>
                                     <TextBlock Grid.Column="2" Text="H:" Margin="10,0,5,0" VerticalAlignment="Center"/>
-                                    <TextBox x:Name="SimHeightTextBox" Grid.Column="3" Text="600" IsReadOnly="True" Background="LightGray" VerticalContentAlignment="Center"/>
+                                    <TextBox x:Name="SimHeightTextBox" Grid.Column="3" Text="600" VerticalContentAlignment="Center"/>
                                 </Grid>
 
                                 <!-- Controls Info -->
@@ -739,7 +762,7 @@
                                 <Separator Margin="0,10"/>
 
                                 <TextBlock Text="Visual Enhancements:" FontWeight="Bold" FontSize="14" Margin="0,5,0,10"/>
-                                <TextBlock Text="Toggle visual feedback features (Classic mode)" FontStyle="Italic" FontSize="10" Margin="0,0,0,10" TextWrapping="Wrap"/>
+                                <TextBlock Text="Toggle visual feedback features. All of these work in both render modes - in Luminous they are drawn as light." FontStyle="Italic" FontSize="10" Margin="0,0,0,10" TextWrapping="Wrap"/>
 
                                 <!-- Grid Overlay -->
                                 <CheckBox x:Name="ShowGridCheckBox" Content="Show Grid Overlay" IsChecked="False" Margin="0,5" Checked="VisualToggle_Changed" Unchecked="VisualToggle_Changed"/>

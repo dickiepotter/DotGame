@@ -37,6 +37,7 @@ A C# WPF application that simulates particles (dots) with realistic physics inte
 
 - **Interactive Controls**
   - Start/Stop/Reset simulation
+  - Full screen (F11) with the sidebar hidden
   - Adjust particle count, seed, gravity strength
   - Toggle physics features on/off
   - Real-time configuration updates
@@ -210,6 +211,36 @@ worsens the net balance (two smaller particles have more combined surface area t
 (`(MinMass + MaxMass) / 2`). Actual acceleration is `F × ReferenceMass / m`, so heavier
 particles are correspondingly harder to accelerate.
 
+## Full Screen
+
+**F11** toggles full screen, **Esc** leaves it, and there is a button beside Start/Stop/Reset.
+The sidebar is removed and the window loses its chrome, so the simulation runs edge to edge.
+A hint appears briefly on entering - a borderless window with no visible controls is otherwise
+easy to mistake for a hang.
+
+### The world is a fixed size, scaled to the window
+
+Resizing the window - or going full screen - **zooms** the view. It does not change how much
+world there is. The canvas sits in a `Viewbox` with `Stretch="Uniform"`, so the same
+simulation is drawn larger, aspect ratio intact, and circles stay circular.
+
+Two things fall out of that:
+
+- **A seed means the same thing at any window size.** When the world was sized from whatever
+  window it opened in, the same seed produced a different simulation on a different display.
+  It no longer does; the world comes from the Sim Width and Sim Height fields alone.
+- **Mouse input needs no conversion.** Positions taken relative to the Canvas arrive already
+  in world coordinates, because WPF maps them through the Viewbox transform. Only the tooltip,
+  which is an unscaled overlay, is positioned in screen space.
+
+The default world is shaped to the **display's** aspect ratio, so full screen fills it exactly
+rather than showing bars down the sides. The configured *area* is preserved rather than a
+dimension - particle density is what the ecosystem is balanced around, and stretching 800x600
+out to 1067x600 would quietly make the world a third emptier. On a 16:9 display the default
+works out at 924x520.
+
+Both fields are editable and applied on Reset, so any world shape or size can be set.
+
 ## Render Modes
 
 Two visual treatments of the same simulation, switchable live in the **Visual** tab.
@@ -233,6 +264,18 @@ hide the further one and no combination could ever exceed the brightest single s
 Each particle emits three nested falloffs - a small lightly-whitened core, a coloured body,
 and a wide halo. Their sum is what removes any sense of a boundary: brightness slides
 continuously from the hot centre out to black space.
+
+**Colour follows the legend.** A particle's colour is whatever `ColorGenerator` assigned it -
+the type hue from the Visual tab legend, ability tints, and brightness already scaled by
+energy. Luminous reproduces that colour rather than reinterpreting it, by solving for the
+linear energy that resolves to it (`LightField.LinearForDisplay`, the exact inverse of the
+exposure curve *and* the gamma encode applied on the way out). Emitting arbitrary intensities
+instead lets the tone curve pull every channel toward its ceiling, which drains saturation
+until a red predator and a green herbivore both read as pale cream.
+
+**Every Visual tab overlay works in this mode too**, drawn as light rather than as shapes:
+the grid as faint rules, energy bars with the same dimensions and green/yellow/red thresholds
+as Classic, motion trails from the same recorded history, and vision range as a soft wash.
 
 Ability state is expressed as light rather than as overlays:
 
@@ -322,7 +365,7 @@ can be auditioned or tested by pumping `RenderTo` directly.
 
 - **Particle Count**: 50
 - **Random Seed**: 12345
-- **Simulation Size**: 800×600 pixels
+- **Simulation Size**: 800×600 px of area, reshaped to the display's aspect (924×520 on 16:9)
 - **Gravity Constant**: 100.0
 - **Damping Factor**: 0.995 (0.5% velocity loss per 1/60s, applied continuously so behaviour is frame-rate independent)
 - **Restitution**: 0.8 (20% energy loss per collision)

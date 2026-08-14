@@ -60,19 +60,25 @@ public sealed class LightField
     public WriteableBitmap? Bitmap { get; private set; }
 
     /// <summary>
-    /// Sizes the field to a canvas. Returns true if the backing bitmap was recreated.
+    /// Sizes the field to the world. Returns true if the backing bitmap was recreated.
     /// </summary>
-    public bool Resize(double canvasWidth, double canvasHeight)
+    /// <param name="preferredScale">
+    /// Buffer pixels per world unit to aim for. When the world is scaled up to fill a larger
+    /// window, rendering at 1:1 world resolution and letting the display stretch it would
+    /// visibly soften thin features such as grid lines and energy bars, so the caller passes
+    /// the on-screen scale and gets a buffer matched to it - still subject to the pixel cap.
+    /// </param>
+    public bool Resize(double worldWidth, double worldHeight, double preferredScale = 1.0)
     {
-        if (canvasWidth < 1 || canvasHeight < 1) return false;
+        if (worldWidth < 1 || worldHeight < 1) return false;
 
-        double scale = 1.0;
-        double pixels = canvasWidth * canvasHeight;
+        double scale = Math.Clamp(preferredScale, 0.25, 4.0);
+        double pixels = worldWidth * scale * worldHeight * scale;
         if (pixels > MAX_BUFFER_PIXELS)
-            scale = Math.Sqrt(MAX_BUFFER_PIXELS / pixels);
+            scale *= Math.Sqrt(MAX_BUFFER_PIXELS / pixels);
 
-        int w = Math.Max(1, (int)(canvasWidth * scale));
-        int h = Math.Max(1, (int)(canvasHeight * scale));
+        int w = Math.Max(1, (int)(worldWidth * scale));
+        int h = Math.Max(1, (int)(worldHeight * scale));
 
         if (w == Width && h == Height && Bitmap != null) return false;
 
@@ -107,12 +113,43 @@ public sealed class LightField
     }
 
     /// <summary>
+    /// The linear energy that resolves to a given display value.
+    ///
+    /// This is the exact inverse of <see cref="Resolve"/>, which applies an exposure curve
+    /// and *then* a gamma encode. Both have to be undone: inverting only the exposure leaves
+    /// the gamma step to lift the darker channels of a colour proportionally more than the
+    /// bright ones, which washes saturation out and flattens the brightness difference
+    /// between a full and a starving particle.
+    /// </summary>
+    public static float LinearForDisplay(float displayed, float exposure, float gamma)
+    {
+        float c = Math.Clamp(displayed, 0f, 0.995f);
+        float mapped = MathF.Pow(c, MathF.Max(0.1f, gamma));   // undo the gamma encode
+        return -MathF.Log(1f - mapped) / MathF.Max(0.0001f, exposure);
+    }
+
+    /// <summary>
     /// Adds a radially fading light. Coordinates and radius are in canvas space.
     /// </summary>
     public void AddGlow(double cx, double cy, double radius, Color color, float intensity,
         Falloff falloff = Falloff.Soft)
     {
-        if (intensity <= 0f || radius <= 0) return;
+        AddGlowLinear(cx, cy, radius,
+            color.R * (1f / 255f) * intensity,
+            color.G * (1f / 255f) * intensity,
+            color.B * (1f / 255f) * intensity,
+            falloff);
+    }
+
+    /// <summary>
+    /// Adds a radially fading light from explicit per-channel linear energies. Use with
+    /// <see cref="LinearForDisplay"/> when a specific resolved colour is required.
+    /// </summary>
+    public void AddGlowLinear(double cx, double cy, double radius, float er, float eg, float eb,
+        Falloff falloff = Falloff.Soft)
+    {
+        if (radius <= 0) return;
+        if (er <= 0f && eg <= 0f && eb <= 0f) return;
 
         double s = Scale;
         float fx = (float)(cx * s), fy = (float)(cy * s);
@@ -126,9 +163,7 @@ public sealed class LightField
         if (minX > maxX || minY > maxY) return;
 
         float r2 = r * r;
-        float cr = color.R * (1f / 255f) * intensity;
-        float cg = color.G * (1f / 255f) * intensity;
-        float cb = color.B * (1f / 255f) * intensity;
+        float cr = er, cg = eg, cb = eb;
         bool tight = falloff == Falloff.Tight;
 
         var buf = _energy;
@@ -196,6 +231,59 @@ public sealed class LightField
 
                 float t = 1f - off / th;
                 float v = t * t;
+
+                int i = (row + x) * 3;
+                buf[i] += cr * v;
+                buf[i + 1] += cg * v;
+                buf[i + 2] += cb * v;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Adds a straight run of light of even brightness, fading to nothing across its
+    /// thickness. Used for the grid, energy bars and trail segments - anything that needs a
+    /// definite shape but must still have soft edges.
+    /// </summary>
+    public void AddSegment(double x0, double y0, double x1, double y1, double thickness,
+        Color color, float intensity)
+    {
+        if (intensity <= 0f || thickness <= 0) return;
+
+        double s = Scale;
+        float ax = (float)(x0 * s), ay = (float)(y0 * s);
+        float bx = (float)(x1 * s), by = (float)(y1 * s);
+        float half = MathF.Max(0.6f, (float)(thickness * s * 0.5));
+
+        int minX = Math.Max(0, (int)MathF.Floor(MathF.Min(ax, bx) - half));
+        int maxX = Math.Min(Width - 1, (int)MathF.Ceiling(MathF.Max(ax, bx) + half));
+        int minY = Math.Max(0, (int)MathF.Floor(MathF.Min(ay, by) - half));
+        int maxY = Math.Min(Height - 1, (int)MathF.Ceiling(MathF.Max(ay, by) + half));
+        if (minX > maxX || minY > maxY) return;
+
+        float dx = bx - ax, dy = by - ay;
+        float lenSq = dx * dx + dy * dy;
+
+        float cr = color.R * (1f / 255f) * intensity;
+        float cg = color.G * (1f / 255f) * intensity;
+        float cb = color.B * (1f / 255f) * intensity;
+        float half2 = half * half;
+
+        var buf = _energy;
+        for (int y = minY; y <= maxY; y++)
+        {
+            int row = y * Width;
+            for (int x = minX; x <= maxX; x++)
+            {
+                // Distance from the pixel to the segment, clamped to the endpoints
+                float px = x - ax, py = y - ay;
+                float t = lenSq > 0.0001f ? Math.Clamp((px * dx + py * dy) / lenSq, 0f, 1f) : 0f;
+                float ox = px - dx * t, oy = py - dy * t;
+                float d2 = ox * ox + oy * oy;
+                if (d2 >= half2) continue;
+
+                float f = 1f - d2 / half2;
+                float v = f * f;
 
                 int i = (row + x) * 3;
                 buf[i] += cr * v;
