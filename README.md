@@ -456,10 +456,6 @@ Potential features for future development:
 - Particle lifetime and decay
 - Multiple preset configurations
 
-## License
-
-This project is created for educational purposes.
-
 ## Author
 
 Created using Claude Code - AI-powered software development assistant.
@@ -470,3 +466,9 @@ Created using Claude Code - AI-powered software development assistant.
 - Semi-implicit Euler integration for stable simulation
 - Spatial hash grid optimization technique
 - WPF framework for hardware-accelerated rendering
+
+## Licence and disclaimer
+
+This is a personal project by Richard Potter, shared in the hope it's useful. It's free to use under the MIT licence (see [LICENSE](LICENSE)). It's provided as is: I make no promises that it works or suits your purpose, and I take no responsibility for anything that happens from using it. It isn't a product of, or supported by, any company I work for.
+
+It was created for educational purposes. The `extern/` submodules (Math, Game, Sound) are separate repositories with their own licences.
